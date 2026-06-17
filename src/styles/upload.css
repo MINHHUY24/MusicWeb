@@ -1,0 +1,871 @@
+/* ==================== NOTE: Upload page - bố cục tổng ==================== */
+.upload-page {
+  width: 100%;
+  max-width: 100%;
+  padding-top: 0;
+}
+
+.upload-page p:not(.page-kicker) {
+  max-width: none;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* NOTE: Upload page - header chính */
+.upload-page-heading,
+.upload-library-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.upload-page-heading h2,
+.upload-library-heading h2 {
+  color: #f7fbff;
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1;
+}
+
+.upload-page-heading p,
+.upload-library-heading p {
+  margin-top: 8px;
+  color: rgb(230 238 250 / 0.66);
+}
+
+.upload-storage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  color: rgb(232 244 255 / 0.88);
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+}
+
+/* ==================== NOTE: Upload wizard - khung liquid glass ==================== */
+.upload-wizard,
+.upload-library {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(96 174 255 / 0.2), transparent 34%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.035)),
+    rgb(5 17 28 / 0.72);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 22px 64px rgb(0 0 0 / 0.28);
+  backdrop-filter: blur(24px) saturate(165%);
+  -webkit-backdrop-filter: blur(24px) saturate(165%);
+}
+
+.upload-wizard::before,
+.upload-library::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(110deg, rgb(255 255 255 / 0.1), transparent 44%),
+    radial-gradient(circle at 82% 18%, rgb(91 234 207 / 0.09), transparent 35%);
+}
+
+.upload-wizard {
+  display: grid;
+  gap: 22px;
+  min-height: 0;
+  padding: clamp(18px, 2.5vw, 30px);
+}
+
+/* NOTE: Upload wizard - thanh step */
+.upload-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 12px;
+  color: rgb(232 240 250 / 0.64);
+  border: 1px solid rgb(232 244 255 / 0.12);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.045);
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease;
+}
+
+.upload-step-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: rgb(232 244 255 / 0.84);
+  font-size: 13px;
+  font-weight: 900;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.upload-step-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.upload-step-copy strong,
+.upload-step-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-step-copy strong {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.upload-step-copy small {
+  margin-top: 3px;
+  color: rgb(232 240 250 / 0.54);
+  font-size: 12px;
+}
+
+.upload-step-active,
+.upload-step-done {
+  color: #ffffff;
+  border-color: rgb(139 200 255 / 0.42);
+  background:
+    linear-gradient(135deg, rgb(139 200 255 / 0.18), rgb(255 255 255 / 0.05)),
+    rgb(255 255 255 / 0.06);
+}
+
+.upload-step-active .upload-step-number,
+.upload-step-done .upload-step-number {
+  color: #06111f;
+  border-color: transparent;
+  background: var(--accent-strong);
+}
+
+/* NOTE: Upload wizard - lỗi inline */
+.upload-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #ffe2e7;
+  border: 1px solid rgb(255 159 176 / 0.28);
+  border-radius: 16px;
+  background: rgb(122 28 46 / 0.22);
+}
+
+.upload-error svg {
+  flex: 0 0 auto;
+}
+
+/* ==================== NOTE: Upload wizard - nội dung từng bước ==================== */
+.upload-stage {
+  min-width: 0;
+}
+
+.upload-stage-file {
+  display: grid;
+  grid-template-columns: minmax(220px, 360px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(18px, 3vw, 34px);
+}
+
+.upload-stage-copy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.upload-kicker {
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.upload-stage-copy h3,
+.upload-stage-done h3 {
+  color: #ffffff;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1;
+}
+
+.upload-stage-copy p,
+.upload-stage-done p {
+  color: rgb(230 238 250 / 0.68);
+}
+
+/* NOTE: Upload wizard - khu chọn file nhạc */
+.upload-dropzone,
+.upload-cover-dropzone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: rgb(240 247 255 / 0.82);
+  text-align: center;
+  border: 1px dashed rgb(232 244 255 / 0.34);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.03)),
+    rgb(10 22 34 / 0.72);
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.upload-dropzone:hover,
+.upload-cover-dropzone:hover {
+  border-color: rgb(185 220 255 / 0.62);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04)),
+    rgb(14 30 44 / 0.84);
+}
+
+.upload-dropzone:active,
+.upload-cover-dropzone:active,
+.upload-primary-button:active,
+.upload-secondary-button:active,
+.upload-library-actions button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.upload-dropzone input,
+.upload-cover-dropzone input,
+.upload-cover-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.upload-dropzone {
+  min-height: clamp(250px, 32vh, 330px);
+  padding: 28px;
+  border-radius: 24px;
+}
+
+.upload-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  margin-bottom: 16px;
+  color: var(--accent-strong);
+  border: 1px solid rgb(232 244 255 / 0.16);
+  border-radius: 28px;
+  background: rgb(139 200 255 / 0.12);
+}
+
+.upload-dropzone strong,
+.upload-dropzone small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-dropzone strong {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.upload-dropzone small {
+  margin-top: 7px;
+  color: rgb(232 240 250 / 0.58);
+  font-size: 14px;
+}
+
+.upload-dropzone-filled {
+  border-style: solid;
+  border-color: rgb(139 200 255 / 0.42);
+}
+
+/* NOTE: Upload wizard - preview audio */
+.upload-audio-card {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr) minmax(260px, 480px);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.05);
+}
+
+.upload-audio-card svg {
+  color: var(--accent);
+}
+
+.upload-audio-card strong,
+.upload-audio-card span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-audio-card strong {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.upload-audio-card span {
+  margin-top: 4px;
+  color: rgb(232 240 250 / 0.6);
+  font-size: 13px;
+}
+
+.upload-audio-card audio,
+.upload-library-actions audio {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+}
+
+/* ==================== NOTE: Upload wizard - form thông tin track ==================== */
+.upload-stage-info {
+  display: grid;
+  gap: 18px;
+}
+
+.upload-info-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 260px) minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 28px);
+  align-items: start;
+}
+
+.upload-cover-block {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.upload-cover-dropzone {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 24px;
+}
+
+.upload-cover-dropzone img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-cover-empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: rgb(232 244 255 / 0.72);
+  font-weight: 850;
+}
+
+.upload-cover-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  color: rgb(236 246 255 / 0.9);
+  border: 1px solid rgb(232 244 255 / 0.16);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.upload-cover-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
+.upload-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.upload-field:last-child {
+  grid-column: 1 / -1;
+}
+
+.upload-field span {
+  color: rgb(238 245 255 / 0.86);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.upload-field input,
+.upload-field select,
+.upload-field textarea {
+  width: 100%;
+  min-width: 0;
+  color: #f8fbff;
+  font: inherit;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 16px;
+  outline: 0;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03)),
+    rgb(10 22 34 / 0.74);
+}
+
+.upload-field input,
+.upload-field select {
+  height: 48px;
+  padding: 0 14px;
+}
+
+.upload-field select {
+  color-scheme: dark;
+}
+
+.upload-field textarea {
+  height: 108px;
+  min-height: 108px;
+  max-height: 108px;
+  padding: 12px 14px;
+  resize: none;
+}
+
+.upload-field input::placeholder,
+.upload-field textarea::placeholder {
+  color: rgb(230 238 250 / 0.48);
+}
+
+.upload-field input:focus,
+.upload-field select:focus,
+.upload-field textarea:focus {
+  border-color: rgb(185 220 255 / 0.58);
+  box-shadow: 0 0 0 3px rgb(139 200 255 / 0.16);
+}
+
+.upload-file-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: rgb(232 240 250 / 0.74);
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.045);
+}
+
+.upload-file-summary svg {
+  color: var(--accent);
+}
+
+.upload-file-summary strong,
+.upload-file-summary span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-file-summary strong {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.upload-file-summary span {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+/* ==================== NOTE: Upload wizard - trạng thái hoàn tất ==================== */
+.upload-stage-done {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  min-height: 330px;
+  text-align: center;
+}
+
+.upload-stage-done > svg {
+  color: #7ee2d5;
+  filter: drop-shadow(0 14px 32px rgb(126 226 213 / 0.16));
+}
+
+.upload-success-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: min(420px, 100%);
+  margin-top: 4px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid rgb(232 244 255 / 0.16);
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.upload-success-cover {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  overflow: hidden;
+  color: var(--accent-strong);
+  border: 1px solid rgb(232 244 255 / 0.16);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.upload-success-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-success-card strong,
+.upload-success-card span,
+.upload-success-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-success-card strong {
+  color: #ffffff;
+  font-size: 17px;
+}
+
+.upload-success-card span {
+  margin-top: 4px;
+  color: rgb(232 240 250 / 0.68);
+}
+
+.upload-success-card small {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* NOTE: Upload wizard - nút điều hướng */
+.upload-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upload-primary-button,
+.upload-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  font-weight: 850;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.upload-primary-button {
+  color: #06111f;
+  border: 0;
+  background: var(--accent-strong);
+}
+
+.upload-secondary-button {
+  color: rgb(240 247 255 / 0.9);
+  border: 1px solid rgb(232 244 255 / 0.18);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.upload-primary-button:hover {
+  background: #d4ebff;
+}
+
+.upload-secondary-button:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.upload-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+/* ==================== NOTE: Upload library - danh sách file đã lưu local ==================== */
+.upload-library {
+  margin-top: 24px;
+  padding: clamp(18px, 2.5vw, 28px);
+}
+
+.upload-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.upload-library-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.05);
+}
+
+.upload-library-cover {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  color: var(--accent-strong);
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.upload-library-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-library-content {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+.upload-library-content strong,
+.upload-library-content span,
+.upload-library-content small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-library-content strong {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.upload-library-content span {
+  margin-top: 4px;
+  color: rgb(232 240 250 / 0.66);
+}
+
+.upload-library-content small {
+  margin-top: 5px;
+  color: rgb(232 240 250 / 0.52);
+  font-size: 12px;
+}
+
+.upload-library-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-library-actions button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: rgb(240 247 255 / 0.86);
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  cursor: pointer;
+}
+
+.upload-library-actions button:hover {
+  color: #ffffff;
+  border-color: rgb(255 159 176 / 0.34);
+  background: rgb(122 28 46 / 0.22);
+}
+
+.upload-library-empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 190px;
+  color: rgb(232 244 255 / 0.58);
+  text-align: center;
+  border: 1px dashed rgb(232 244 255 / 0.14);
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.035);
+}
+
+.upload-library-empty svg {
+  color: var(--accent);
+}
+
+.upload-library-empty strong {
+  color: #ffffff;
+  font-size: 17px;
+}
+
+.upload-library-empty span {
+  color: rgb(232 240 250 / 0.62);
+}
+
+@media (max-width: 980px) {
+  .upload-stage-file {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-audio-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .upload-audio-card audio {
+    grid-column: 1 / -1;
+  }
+
+  .upload-info-grid {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .upload-form-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .upload-page-heading,
+  .upload-library-heading {
+    display: grid;
+    margin-bottom: 18px;
+  }
+
+  .upload-storage-badge {
+    justify-self: start;
+  }
+
+  .upload-wizard,
+  .upload-library {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .upload-stepper {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-step {
+    min-height: 50px;
+  }
+
+  .upload-stage-file,
+  .upload-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-cover-block {
+    width: min(260px, 100%);
+  }
+
+  .upload-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .upload-actions > span {
+    display: none;
+  }
+
+  .upload-primary-button,
+  .upload-secondary-button {
+    width: 100%;
+  }
+
+  .upload-library-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .upload-wizard,
+  .upload-library {
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  .upload-dropzone {
+    min-height: 230px;
+    padding: 20px;
+  }
+
+  .upload-dropzone-icon {
+    width: 78px;
+    height: 78px;
+  }
+
+  .upload-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-library-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .upload-library-cover {
+    width: 64px;
+    height: 64px;
+  }
+}

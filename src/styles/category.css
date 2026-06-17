@@ -1,0 +1,119 @@
+/* ==================== NOTE: Category page - bố cục trang phân loại nhạc ==================== */
+.category-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding-top: 0;
+  overflow: hidden;
+}
+
+/* NOTE: Category page - header chính */
+.category-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.category-panel-heading h2 {
+  color: #f7fbff;
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1;
+}
+
+.category-panel-heading p {
+  margin-top: 8px;
+  color: rgb(230 238 250 / 0.66);
+  font-size: 16px;
+}
+
+.category-panel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  color: rgb(232 244 255 / 0.88);
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+}
+
+/* NOTE: Category page - grid card thể loại */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-auto-rows: max-content;
+  gap: clamp(16px, 2vw, 24px);
+  align-content: start;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 8px 18px 0;
+  scrollbar-color: rgb(139 200 255 / 0.42) transparent;
+  scrollbar-width: thin;
+}
+
+.category-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.category-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.category-grid::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(139 200 255 / 0.38);
+  background-clip: content-box;
+}
+
+@media (min-width: 1440px) {
+  .category-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .category-page {
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .category-panel-heading {
+    display: grid;
+    margin-bottom: 18px;
+  }
+
+  .category-panel-badge {
+    justify-self: start;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .category-grid {
+    gap: 12px;
+  }
+}

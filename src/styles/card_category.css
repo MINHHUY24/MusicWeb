@@ -1,0 +1,265 @@
+/* ==================== NOTE: Component card_category - card thể loại nhạc ==================== */
+.card_category {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-self: start;
+  gap: 13px;
+  width: 100%;
+  min-width: 0;
+  padding: 13px;
+  color: #f7fbff;
+  text-align: left;
+  border: 1px solid rgb(232 244 255 / 0.15);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.03)),
+    rgb(5 17 28 / 0.56);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.15),
+    0 18px 44px rgb(0 0 0 / 0.17);
+  cursor: pointer;
+  overflow: hidden;
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.card_category::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 18% 0%, var(--category-tone), transparent 38%),
+    linear-gradient(135deg, rgb(255 255 255 / 0.08), transparent 50%);
+  opacity: 0.48;
+}
+
+.card_category > * {
+  position: relative;
+  z-index: 1;
+}
+
+.card_category[data-tone="blue"] {
+  --category-tone: rgb(96 174 255 / 0.34);
+}
+
+.card_category[data-tone="mint"] {
+  --category-tone: rgb(91 234 207 / 0.27);
+}
+
+.card_category[data-tone="rose"] {
+  --category-tone: rgb(255 132 178 / 0.25);
+}
+
+.card_category[data-tone="amber"] {
+  --category-tone: rgb(255 196 107 / 0.25);
+}
+
+.card_category[data-tone="violet"] {
+  --category-tone: rgb(174 147 255 / 0.24);
+}
+
+.card_category:hover,
+.card_category:focus-visible {
+  border-color: rgb(232 244 255 / 0.34);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0.045)),
+    rgb(8 24 38 / 0.72);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 22px 54px rgb(0 0 0 / 0.24);
+  transform: translateY(-3px);
+}
+
+.card_category:focus-visible {
+  outline: 2px solid rgb(185 220 255 / 0.8);
+  outline-offset: 4px;
+}
+
+/* NOTE: card_category - vùng ảnh đại diện */
+.card_category-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.13);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03)),
+    rgb(16 28 40 / 0.92);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 12px 30px rgb(0 0 0 / 0.2);
+}
+
+.card_category-cover::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(to top, rgb(0 0 0 / 0.38), transparent 54%),
+    radial-gradient(circle at 18% 10%, rgb(255 255 255 / 0.2), transparent 28%);
+  opacity: 0.82;
+}
+
+.card_category-cover img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.01);
+  transition: transform 0.28s ease;
+}
+
+.card_category:hover .card_category-cover img,
+.card_category:focus-visible .card_category-cover img {
+  transform: scale(1.07);
+}
+
+.card_category-fallback {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  color: rgb(239 247 255 / 0.92);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 24px;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.card_category-cover img + .card_category-fallback {
+  opacity: 0;
+}
+
+/* NOTE: card_category - nút play nổi trên ảnh */
+.card_category-play {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #06111f;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.58),
+    0 14px 28px rgb(0 0 0 / 0.28);
+  opacity: 0;
+  transform: translateY(8px) scale(0.92);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.card_category:hover .card_category-play,
+.card_category:focus-visible .card_category-play {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* NOTE: card_category - nội dung chữ */
+.card_category-content {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.card_category-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.card_category-title,
+.card_category-description,
+.card_category-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card_category-title {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.22;
+}
+
+.card_category-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: rgb(240 247 255 / 0.74);
+  border-radius: 999px;
+  transition:
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.card_category:hover .card_category-arrow,
+.card_category:focus-visible .card_category-arrow {
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.card_category-description {
+  margin-top: 5px;
+  color: rgb(237 245 255 / 0.64);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.card_category-meta {
+  margin-top: 12px;
+  color: rgb(139 200 255 / 0.84);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .card_category {
+    gap: 12px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .card_category-cover {
+    border-radius: 15px;
+  }
+
+  .card_category-title {
+    font-size: 15px;
+  }
+
+  .card_category-description {
+    font-size: 13px;
+  }
+
+  .card_category-play {
+    right: 10px;
+    bottom: 10px;
+    width: 38px;
+    height: 38px;
+  }
+}

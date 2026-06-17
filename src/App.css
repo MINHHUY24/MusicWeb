@@ -1,0 +1,1586 @@
+/* ==================== NOTE: Biến animation cho Sidebar ==================== */
+@property --sidebar-track {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 270px;
+}
+
+@property --sidebar-panel-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 244px;
+}
+
+/* ==================== NOTE: App layout - khung tổng của website ==================== */
+.app-shell {
+  --motion-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-duration: 620ms;
+  --sidebar-track: 260px;
+  --sidebar-panel-width: 244px;
+  --glass-border: rgb(232 244 255 / 0.34);
+  --glass-border-soft: rgb(232 244 255 / 0.17);
+  --glass-fill: rgb(190 215 238 / 0.14);
+  --glass-highlight: rgb(255 255 255 / 0.42);
+  --glass-shadow: rgb(0 0 0 / 0.34);
+  --accent: #8bc8ff;
+  --accent-strong: #b9dcff;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  row-gap: clamp(14px, 2.5vh, 28px);
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  padding: clamp(10px, 1.8vh, 20px);
+  color: #f3f7ff;
+  background:
+    radial-gradient(circle at 18% 8%, rgb(136 194 255 / 0.2), transparent 28%),
+    radial-gradient(circle at 84% 22%, rgb(92 255 222 / 0.1), transparent 30%),
+    linear-gradient(116deg, #07101a 0%, #04070c 42%, #061b1c 100%),
+    #05080d;
+  transition:
+    --sidebar-track var(--sidebar-duration) var(--motion-soft),
+    --sidebar-panel-width var(--sidebar-duration) var(--motion-soft);
+}
+
+.app-shell::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgb(187 221 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(187 221 255 / 0.045) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.app-shell::after {
+  position: fixed;
+  inset: -20% 0 auto 12%;
+  z-index: 0;
+  width: 55vw;
+  height: 150vh;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(110deg, transparent 0 42%, rgb(190 225 255 / 0.055) 43% 48%, transparent 49% 100%);
+  transform: rotate(2deg);
+}
+
+/* NOTE: App layout - chia cột sidebar và nội dung chính */
+.app-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: var(--sidebar-track) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    grid-template-columns var(--sidebar-duration) var(--motion-soft),
+    gap var(--sidebar-duration) var(--motion-soft);
+}
+
+@media (min-width: 961px) {
+  .app-sidebar-collapsed {
+    --sidebar-track: 92px;
+    --sidebar-panel-width: 78px;
+  }
+}
+
+/* ==================== NOTE: Shared glass - hiệu ứng liquid glass dùng chung ==================== */
+.topbar,
+.sidebar-panel,
+.player-bar {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  /* background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.3), rgb(195 224 255 / 0.15) 42%, rgb(13 32 40 / 0.2)),
+    var(--glass-fill); */
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgb(255 255 255 / 0.12),
+    0 24px 70px var(--glass-shadow);
+  backdrop-filter: blur(28px) saturate(180%) contrast(1.04);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) contrast(1.04);
+}
+
+.topbar::before,
+.sidebar-panel::before,
+.player-bar::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  /* background:
+    radial-gradient(circle at 18% 0%, rgb(255 255 255 / 0.5), transparent 34%),
+    linear-gradient(90deg, rgb(255 255 255 / 0.12), transparent 45%, rgb(108 196 255 / 0.09)); */
+}
+
+.topbar > *,
+.sidebar-panel > *,
+.player-bar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.topbar::after,
+.sidebar-panel::after,
+.player-bar::after {
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  content: "";
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: inherit;
+}
+
+/* ==================== NOTE: Component Topbar - thanh trên cùng ==================== */
+.topbar {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 180px minmax(280px, 670px) 180px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: clamp(72px, 10vh, 100px);
+  padding: 0 44px;
+  border-radius: 28px;
+}
+
+/* NOTE: Topbar - logo bên trái */
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 92px;
+  height: clamp(58px, 8vh, 82px);
+  color: #4d97ff;
+  filter: drop-shadow(0 8px 18px rgb(78 151 255 / 0.25));
+}
+
+/* NOTE: Topbar - thanh search ở giữa */
+.search-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  min-height: clamp(48px, 6.4vh, 60px);
+  padding: 0 34px;
+  color: #dce6f4;
+  border: 1px solid rgb(238 247 255 / 0.34);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.22), rgb(148 190 230 / 0.12)),
+    rgb(167 195 224 / 0.2);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 -1px 0 rgb(255 255 255 / 0.08),
+    0 12px 34px rgb(0 0 0 / 0.12);
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+}
+
+.search-box input {
+  width: 100%;
+  min-width: 0;
+  color: #f8fbff;
+  font: inherit;
+  font-size: 22px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.search-box input::placeholder {
+  color: rgb(240 246 255 / 0.76);
+}
+
+/* NOTE: Button dùng chung cho topbar và footer player */
+.profile-button,
+.icon-button,
+.play-button {
+  display: inline-grid;
+  place-items: center;
+  color: #f4f8ff;
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.profile-button:active,
+.icon-button:active,
+.play-button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* NOTE: Topbar - nút profile bên phải */
+.profile-button {
+  justify-self: end;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgb(233 242 255 / 0.3);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.05)),
+    rgb(180 215 245 / 0.1);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 12px 28px rgb(0 0 0 / 0.18);
+}
+
+.profile-button:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+/* ==================== NOTE: Component Sidebar - menu điều hướng bên trái ==================== */
+.sidebar-panel {
+  --side-link-height: 62px;
+  --side-row-gap: clamp(24px, 4vh, 44px);
+  --sidebar-pad-y: clamp(26px, 4vh, 44px);
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-panel-width);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--sidebar-pad-y) 14px;
+  border-radius: 28px;
+  will-change: width, padding;
+  transition:
+    width var(--sidebar-duration) var(--motion-soft),
+    padding calc(var(--sidebar-duration) * 0.78) var(--motion-soft),
+    border-radius calc(var(--sidebar-duration) * 0.78) var(--motion-soft),
+    background 0.28s ease;
+}
+
+/* NOTE: Sidebar - trạng thái thu gọn */
+.sidebar-panel-collapsed {
+  padding-inline: 10px;
+}
+
+/* NOTE: Sidebar - nút Menu dùng để đóng/mở sidebar */
+.menu-title {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  height: var(--side-link-height);
+  margin: 0 0 var(--side-row-gap);
+  padding: 0 24px;
+  color: #f4f7fd;
+  font-size: 23px;
+  font-weight: 700;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    gap calc(var(--sidebar-duration) * 0.62) var(--motion-soft),
+    padding calc(var(--sidebar-duration) * 0.62) var(--motion-soft),
+    margin calc(var(--sidebar-duration) * 0.62) var(--motion-soft),
+    color 0.22s ease;
+}
+
+.menu-title:hover {
+  color: #ffffff;
+}
+
+.menu-title:focus-visible,
+.side-link:focus-visible {
+  outline: 2px solid rgb(185 220 255 / 0.75);
+  outline-offset: 3px;
+}
+
+/* NOTE: Sidebar - chữ Menu và chữ của từng link */
+.menu-label,
+.side-link-label {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 160px;
+  opacity: 1;
+  white-space: nowrap;
+  transition:
+    max-width calc(var(--sidebar-duration) * 0.55) var(--motion-soft) 80ms,
+    opacity calc(var(--sidebar-duration) * 0.32) ease 110ms,
+    transform calc(var(--sidebar-duration) * 0.5) var(--motion-soft);
+}
+
+/* NOTE: Sidebar - cách nút Menu hiển thị khi sidebar thu gọn */
+.sidebar-panel-collapsed .menu-title {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+/* NOTE: Sidebar - ẩn chữ khi sidebar thu gọn */
+.sidebar-panel-collapsed .menu-label,
+.sidebar-panel-collapsed .side-link-label {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-6px) scaleX(0.98);
+  transition:
+    max-width calc(var(--sidebar-duration) * 0.45) var(--motion-soft),
+    opacity calc(var(--sidebar-duration) * 0.18) ease,
+    transform calc(var(--sidebar-duration) * 0.32) var(--motion-soft);
+}
+
+/* NOTE: Sidebar - danh sách link điều hướng */
+.side-nav {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--side-row-gap);
+  justify-content: flex-start;
+  min-height: 0;
+  transition: gap 0.36s var(--motion-soft);
+}
+
+/* NOTE: Sidebar - từng link trong menu */
+.side-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--side-link-height);
+  height: var(--side-link-height);
+  padding: 0 24px;
+  color: rgb(247 250 255 / 0.9);
+  font-size: 22px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  line-height: 1;
+  transition:
+    width calc(var(--sidebar-duration) * 0.72) var(--motion-soft),
+    padding calc(var(--sidebar-duration) * 0.72) var(--motion-soft),
+    gap calc(var(--sidebar-duration) * 0.72) var(--motion-soft),
+    transform 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* NOTE: Sidebar - icon trong nút Menu và link */
+.menu-title svg,
+.side-link svg {
+  flex: 0 0 30px;
+  display: block;
+}
+
+/* NOTE: Sidebar - căn giữa icon khi thu gọn */
+.sidebar-panel-collapsed .side-nav {
+  align-items: center;
+}
+
+.sidebar-panel-collapsed .side-link {
+  justify-content: center;
+  width: var(--side-link-height);
+  padding: 0;
+  gap: 0;
+}
+
+.sidebar-panel-collapsed .side-link svg,
+.sidebar-panel-collapsed .menu-title svg {
+  flex-basis: auto;
+}
+
+/* NOTE: Sidebar - trạng thái hover và active */
+.side-link:hover,
+.side-link-active {
+  color: #ffffff;
+  border-color: rgb(242 248 255 / 0.34);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.28), rgb(144 195 238 / 0.16)),
+    rgb(197 215 235 / 0.16);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -1px 0 rgb(255 255 255 / 0.1),
+    0 14px 34px rgb(0 0 0 / 0.16);
+}
+
+.side-link:hover {
+  transform: none;
+}
+
+.sidebar-panel-collapsed .side-link:hover {
+  transform: none;
+}
+
+/* ==================== NOTE: Page content - nội dung trang thay đổi theo route ==================== */
+.page-content {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 22px 120px 0;
+  scrollbar-color: rgb(139 200 255 / 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+/* NOTE: Các trang có vùng cuộn nội bộ thay vì cuộn cả page */
+.page-content-contained {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+/* NOTE: Page content - phần tiêu đề trong từng page */
+.page-section {
+  width: min(760px, 100%);
+  min-height: 280px;
+  padding-top: 36px;
+  text-align: left;
+}
+
+.page-kicker {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.page-section h1 {
+  margin: 12px 0 16px;
+  color: #f8fbff;
+  font-size: clamp(38px, 6vw, 74px);
+  line-height: 0.98;
+}
+
+.page-section p:not(.page-kicker) {
+  max-width: 560px;
+  color: rgb(230 238 250 / 0.74);
+  font-size: 20px;
+}
+
+/* ==================== NOTE: Home page - khu swimlane bài hát ==================== */
+.home-page {
+  width: 100%;
+  max-width: 100%;
+  padding-top: 0;
+}
+
+/* NOTE: Home page - tiêu đề phía trên các swimlane */
+.home-hero {
+  max-width: 760px;
+}
+
+/* NOTE: Home page - nhóm 3 swimlane */
+.home-swimlanes {
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  margin-top: 0;
+  padding-bottom: 10px;
+}
+
+/* NOTE: Home page - từng lane cuộn ngang */
+.music-lane {
+  min-width: 0;
+}
+
+.lane-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.lane-heading h2 {
+  color: #e7f0ff;
+  font-size: clamp(24px, 2.6vw, 30px);
+  line-height: 1;
+}
+
+.lane-more {
+  flex: 0 0 auto;
+  padding: 0;
+  color: rgb(232 240 255 / 0.86);
+  font-size: 17px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lane-more:hover {
+  color: #ffffff;
+}
+
+.lane-scroll {
+  --lane-card-width: clamp(156px, 12.5vw, 194px);
+  display: grid;
+  grid-auto-columns: var(--lane-card-width);
+  grid-auto-flow: column;
+  gap: clamp(22px, 3vw, 44px);
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 8px 14px 0;
+  scroll-padding-inline: 2px;
+  scrollbar-color: rgb(139 200 255 / 0.42) transparent;
+  scrollbar-width: thin;
+}
+
+.lane-scroll-expanded {
+  grid-template-columns: repeat(auto-fill, minmax(var(--lane-card-width), var(--lane-card-width)));
+  grid-auto-flow: row;
+  grid-auto-columns: unset;
+  overflow-x: hidden;
+  overflow-y: visible;
+  padding-bottom: 6px;
+}
+
+.lane-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.lane-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lane-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(139 200 255 / 0.38);
+  background-clip: content-box;
+}
+
+/* ==================== NOTE: Component Footer - thanh phát nhạc dưới cùng ==================== */
+.player-bar {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(300px, 1fr) minmax(230px, 320px);
+  align-items: center;
+  gap: 26px;
+  min-height: clamp(88px, 13vh, 128px);
+  padding: 20px 36px 20px 24px;
+  border-radius: 30px;
+}
+
+/* NOTE: Footer - thông tin bài hát đang phát */
+.song-info {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 26px;
+  min-width: 0;
+}
+
+/* NOTE: Footer - ô ảnh bìa bài hát */
+.cover-placeholder {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  overflow: hidden;
+  color: rgb(232 244 255 / 0.52);
+  border: 1px solid rgb(241 247 255 / 0.28);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.06)),
+    rgb(169 199 226 / 0.1);
+}
+
+.cover-placeholder img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.song-copy {
+  min-width: 0;
+}
+
+.song-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.song-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 8px;
+  color: rgb(238 245 255 / 0.66);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* NOTE: Footer - cụm điều khiển ở giữa */
+.player-center {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* NOTE: Footer - các nút điều khiển phát nhạc */
+.player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  color: rgb(246 250 255 / 0.9);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.icon-button:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.icon-button-active {
+  color: var(--accent);
+  background: rgb(139 200 255 / 0.12);
+}
+
+.repeat-button {
+  position: relative;
+}
+
+.repeat-button::after {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  display: none;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  color: #06111f;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  border-radius: 999px;
+  background: var(--accent-strong);
+}
+
+.repeat-button[data-repeat-mode="one"]::after {
+  display: grid;
+  content: "1";
+}
+
+.repeat-button[data-repeat-mode="all"]::after {
+  display: grid;
+  content: "∞";
+}
+
+.play-button {
+  width: 62px;
+  height: 62px;
+  color: #06111f;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 20%, #ffffff 0%, transparent 34%),
+    var(--accent-strong);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 14px 32px rgb(139 200 255 / 0.28);
+}
+
+.play-button:hover {
+  background: #d4ebff;
+}
+
+/* NOTE: Footer - timeline bài hát */
+.timeline-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.timeline-track,
+.volume-track,
+.timeline-range,
+.volume-range {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(222 232 245 / 0.28);
+}
+
+.timeline-range,
+.volume-range {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  appearance: none;
+  background:
+    linear-gradient(90deg, var(--accent) 0 var(--progress), rgb(222 232 245 / 0.28) var(--progress) 100%);
+  cursor: pointer;
+}
+
+.timeline-range::-webkit-slider-thumb,
+.volume-range::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  appearance: none;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.timeline-range::-moz-range-thumb,
+.volume-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.timeline-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateY(-50%);
+}
+
+/* NOTE: Footer - âm lượng và danh sách phát */
+.player-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  color: #f8fbff;
+}
+
+.volume-track {
+  width: 94px;
+}
+
+.volume-range {
+  width: 94px;
+}
+
+.volume-track span {
+  display: block;
+  width: 55%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.tool-divider {
+  width: 1px;
+  height: 34px;
+  background: rgb(238 245 255 / 0.34);
+}
+
+.queue-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: #f8fbff;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.queue-toggle:hover,
+.queue-toggle-active {
+  color: var(--accent);
+  background: rgb(139 200 255 / 0.12);
+}
+
+.queue-panel {
+  position: fixed;
+  right: clamp(14px, 2vw, 28px);
+  bottom: clamp(116px, 16vh, 154px);
+  z-index: 20;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(480px, calc(100dvh - 190px));
+  overflow: hidden;
+  padding: 16px;
+  color: #f7fbff;
+  border: 1px solid rgb(232 244 255 / 0.2);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 18% 0%, rgb(96 174 255 / 0.17), transparent 38%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.035)),
+    rgb(5 17 28 / 0.94);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 24px 70px rgb(0 0 0 / 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(24px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+.queue-panel-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.queue-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.queue-panel-heading strong {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.queue-panel-heading button {
+  color: rgb(232 244 255 / 0.72);
+  font: inherit;
+  font-size: 13px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.queue-list {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.queue-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px 7px 7px;
+  color: #f7fbff;
+  text-align: left;
+  border: 1px solid rgb(232 244 255 / 0.1);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.055);
+  cursor: pointer;
+}
+
+.queue-row:hover {
+  border-color: rgb(232 244 255 / 0.22);
+  background: rgb(255 255 255 / 0.085);
+}
+
+.queue-cover {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  color: var(--accent-strong);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.queue-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.queue-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.queue-copy strong,
+.queue-copy small,
+.queue-row > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-copy strong {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.queue-copy small,
+.queue-row > span:last-child,
+.queue-empty {
+  color: rgb(232 240 250 / 0.62);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ==================== NOTE: Responsive - giảm chuyển động nếu người dùng bật setting này ==================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ==================== NOTE: Responsive - màn hình desktop thấp chiều cao ==================== */
+@media (max-height: 900px) and (min-width: 961px) {
+  .app-shell {
+    --sidebar-track: clamp(174px, 18vw, 270px);
+    --sidebar-panel-width: clamp(154px, 17.5vw, 252px);
+    row-gap: clamp(10px, 2vh, 16px);
+    padding: clamp(8px, 1.6vh, 16px) 20px;
+  }
+
+  .app-layout {
+    gap: clamp(14px, 1.4vw, 20px);
+  }
+
+  .app-sidebar-collapsed {
+    --sidebar-track: 86px;
+    --sidebar-panel-width: 72px;
+  }
+
+  .topbar {
+    min-height: clamp(75px, 8.5vh, 82px);
+    padding-inline: 36px;
+  }
+
+  .brand-mark {
+    height: clamp(48px, 7vh, 62px);
+  }
+
+  .search-box {
+    min-height: clamp(54px, 5.8vh, 54px);
+  }
+
+  .sidebar-panel {
+    --side-link-height: clamp(50px, 7vh, 60px);
+    --side-row-gap: clamp(12px, 2vh, 22px);
+    --sidebar-pad-y: clamp(14px, 2.2vh, 22px);
+    padding: var(--sidebar-pad-y) 12px;
+  }
+
+  .sidebar-panel-collapsed {
+    padding-inline: 9px;
+  }
+
+  .menu-title {
+    gap: 15px;
+    height: var(--side-link-height);
+    margin-bottom: var(--side-row-gap);
+    padding: 0 20px;
+    font-size: clamp(16px, 2.4vh, 21px);
+  }
+
+  .side-nav {
+    gap: var(--side-row-gap);
+  }
+
+  .side-link {
+    min-height: var(--side-link-height);
+    height: var(--side-link-height);
+    padding-inline: clamp(16px, 2vw, 22px);
+    font-size: clamp(14px, 2.25vh, 19px);
+  }
+
+  .sidebar-panel-collapsed .side-link {
+    width: var(--side-link-height);
+    padding-inline: 0;
+  }
+
+  .side-link svg {
+    flex-basis: clamp(18px, 3vh, 24px);
+    width: clamp(18px, 3vh, 24px);
+    height: clamp(18px, 3vh, 24px);
+  }
+
+  .page-content {
+    padding-top: 0;
+  }
+
+  .page-section {
+    padding-top: clamp(14px, 2.4vh, 24px);
+  }
+
+  .home-page {
+    padding-top: 0;
+  }
+
+  .player-bar {
+    min-height: clamp(76px, 11vh, 104px);
+    padding-block: clamp(10px, 1.8vh, 14px);
+  }
+
+  .cover-placeholder {
+    width: clamp(52px, 7.2vh, 62px);
+    height: clamp(52px, 7.2vh, 62px);
+  }
+
+  .play-button {
+    width: clamp(46px, 7vh, 54px);
+    height: clamp(46px, 7vh, 54px);
+  }
+
+  .player-controls {
+    gap: clamp(16px, 2vw, 24px);
+  }
+
+  .timeline-row {
+    font-size: clamp(16px, 2.2vh, 18px);
+  }
+}
+
+/* ==================== NOTE: Responsive - tablet và mobile ==================== */
+@media (max-width: 960px) {
+  .app-shell {
+    overflow: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100dvh;
+    padding: 10px;
+  }
+
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    min-height: 86px;
+    padding: 0 16px;
+    border-radius: 24px;
+  }
+
+  .brand-mark {
+    width: 48px;
+    height: 52px;
+  }
+
+  .search-box {
+    min-width: 0;
+    min-height: 52px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .search-box input {
+    font-size: 16px;
+  }
+
+  .app-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    width: 100%;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .app-sidebar-collapsed .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-panel {
+    --side-link-height: 54px;
+    align-self: start;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 720px;
+    min-height: auto;
+    overflow: hidden;
+    padding: 16px;
+    transition:
+      max-height var(--sidebar-duration) var(--motion-soft),
+      padding calc(var(--sidebar-duration) * 0.78) var(--motion-soft),
+      border-radius calc(var(--sidebar-duration) * 0.78) var(--motion-soft),
+      background 0.28s ease;
+  }
+
+  .sidebar-panel-collapsed {
+    width: 100%;
+  }
+
+  .menu-title {
+    padding: 0 12px 14px;
+  }
+
+  .side-nav {
+    display: flex;
+    gap: 10px;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    overscroll-behavior-x: contain;
+  }
+
+  .side-link {
+    grid-template-columns: auto auto;
+    min-height: 54px;
+    height: 54px;
+    padding: 0 18px;
+    white-space: nowrap;
+    font-size: 16px;
+  }
+
+  .sidebar-panel-collapsed .side-link {
+    grid-template-columns: 1fr;
+    width: 54px;
+    min-width: 54px;
+    padding: 0;
+  }
+
+  .page-content {
+    height: auto;
+    padding: 4px 8px 12px;
+  }
+
+  .page-content-contained {
+    overflow: visible;
+  }
+
+  .player-bar {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .player-tools {
+    justify-content: center;
+  }
+}
+
+/* ==================== NOTE: Responsive - mobile dọc ==================== */
+@media (max-width: 760px) {
+  .app-shell {
+    row-gap: 12px;
+    padding: 8px;
+  }
+
+  .topbar {
+    grid-template-columns: 50px minmax(0, 1fr) 44px;
+    gap: 8px;
+    min-height: 72px;
+    padding: 0 12px;
+    border-radius: 22px;
+  }
+
+  .brand-mark {
+    width: 48px;
+    height: 54px;
+  }
+
+  .brand-mark svg {
+    width: 42px;
+    height: 42px;
+  }
+
+  .search-box {
+    min-height: 44px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .search-box svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .search-box input {
+    font-size: 17px;
+  }
+
+  .profile-button {
+    display: inline-grid;
+    width: 42px;
+    height: 42px;
+  }
+
+  .app-layout {
+    gap: 16px;
+  }
+
+  .sidebar-panel {
+    --side-link-height: 54px;
+    --side-row-gap: 14px;
+    --sidebar-pad-y: 20px;
+    padding: var(--sidebar-pad-y) 20px;
+    border-radius: 24px;
+  }
+
+  /* NOTE: Sidebar mobile - trạng thái thu gọn theo chiều dọc */
+  .app-sidebar-compact .sidebar-panel-collapsed {
+    max-height: 76px;
+    padding-block: 14px;
+    padding-inline: 20px;
+  }
+
+  .menu-title {
+    height: 46px;
+    margin-bottom: 16px;
+    padding: 0 20px;
+    gap: 18px;
+    font-size: 24px;
+  }
+
+  /* NOTE: Sidebar mobile - giữ chữ Menu khi thu gọn */
+  .app-sidebar-compact .sidebar-panel-collapsed .menu-title {
+    justify-content: flex-start;
+    gap: 18px;
+    margin-bottom: 0;
+    padding: 0 20px;
+  }
+
+  .app-sidebar-compact .sidebar-panel-collapsed .menu-label {
+    max-width: 160px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .side-nav {
+    gap: 12px;
+    max-height: 420px;
+    overflow-x: visible;
+    padding-bottom: 0;
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+    transition:
+      max-height var(--sidebar-duration) var(--motion-soft),
+      opacity calc(var(--sidebar-duration) * 0.4) ease,
+      transform calc(var(--sidebar-duration) * 0.5) var(--motion-soft),
+      gap 0.36s var(--motion-soft);
+  }
+
+  /* NOTE: Sidebar mobile - khi thu gọn chỉ còn nút Menu */
+  .app-sidebar-compact .sidebar-panel-collapsed .side-nav {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+    visibility: hidden;
+  }
+
+  .side-link {
+    gap: 16px;
+    width: 100%;
+    min-height: 54px;
+    height: 54px;
+    padding: 0 22px;
+    font-size: 18px;
+  }
+
+  .app-sidebar-compact .sidebar-panel-collapsed .side-link {
+    flex: 0 0 var(--side-link-height);
+    width: var(--side-link-height);
+    min-width: var(--side-link-height);
+    padding: 0;
+  }
+
+  .menu-title svg,
+  .side-link svg {
+    width: 26px;
+    height: 26px;
+    flex-basis: 34px;
+  }
+
+  .page-content {
+    padding: 20px 10px 24px;
+  }
+
+  .page-section {
+    min-height: 280px;
+    padding-top: 18px;
+  }
+
+  .page-section h1 {
+    font-size: clamp(42px, 12vw, 56px);
+  }
+
+  .page-section p:not(.page-kicker) {
+    font-size: 20px;
+    line-height: 1.45;
+  }
+
+  .player-bar {
+    gap: 20px;
+    padding: 18px 20px 20px;
+    border-radius: 24px;
+  }
+
+  .song-info {
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .cover-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+  }
+
+  .song-title {
+    font-size: 21px;
+  }
+
+  .song-artist {
+    font-size: 16px;
+  }
+
+  .player-controls {
+    gap: clamp(18px, 7vw, 30px);
+  }
+
+  .play-button {
+    width: 64px;
+    height: 64px;
+  }
+
+  .timeline-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    font-size: 20px;
+  }
+
+  .player-tools {
+    justify-content: center;
+    gap: 18px;
+  }
+}
+
+/* ==================== NOTE: Responsive - mobile nhỏ ==================== */
+@media (max-width: 640px) {
+  .topbar {
+    grid-template-columns: 44px minmax(0, 1fr) 40px;
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .profile-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-controls {
+    gap: 16px;
+  }
+
+  .song-info {
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .cover-placeholder {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* ==================== NOTE: Responsive - mobile rất nhỏ ==================== */
+@media (max-width: 420px) {
+  .app-shell {
+    row-gap: 10px;
+    padding: 6px;
+  }
+
+  .topbar {
+    grid-template-columns: 38px minmax(0, 1fr) 36px;
+    gap: 7px;
+    min-height: 64px;
+    padding: 0 10px;
+    border-radius: 20px;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 46px;
+  }
+
+  .brand-mark svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .search-box {
+    min-height: 48px;
+    padding: 0 11px;
+    gap: 8px;
+  }
+
+  .search-box svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .search-box input {
+    font-size: 14px;
+  }
+
+  .profile-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .profile-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebar-panel {
+    --side-link-height: 48px;
+    --side-row-gap: 8px;
+    --sidebar-pad-y: 16px;
+    padding: var(--sidebar-pad-y) 14px;
+    border-radius: 22px;
+  }
+
+  .app-sidebar-compact .sidebar-panel-collapsed {
+    max-height: 68px;
+    padding-block: 12px;
+    padding-inline: 14px;
+  }
+
+  .menu-title {
+    height: 42px;
+    margin-bottom: 12px;
+    padding-inline: 16px;
+    font-size: 22px;
+  }
+
+  .app-sidebar-compact .sidebar-panel-collapsed .menu-title {
+    margin-bottom: 0;
+    padding-inline: 16px;
+    gap: 14px;
+  }
+
+  .app-sidebar-compact .sidebar-panel-collapsed .side-nav {
+    gap: 0;
+  }
+
+  .side-link {
+    min-height: 48px;
+    height: 48px;
+    padding-inline: 18px;
+    font-size: 16px;
+  }
+
+  .menu-title svg,
+  .side-link svg {
+    width: 23px;
+    height: 23px;
+    flex-basis: 30px;
+  }
+
+  .page-content {
+    padding: 16px 8px 18px;
+  }
+
+  .page-kicker {
+    font-size: 12px;
+  }
+
+  .page-section h1 {
+    margin-top: 10px;
+    font-size: 42px;
+  }
+
+  .page-section p:not(.page-kicker) {
+    font-size: 17px;
+  }
+
+  .player-bar {
+    gap: 16px;
+    padding: 16px 14px 18px;
+    border-radius: 22px;
+  }
+
+  .song-info {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cover-placeholder {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+  }
+
+  .song-title {
+    font-size: 18px;
+  }
+
+  .song-artist {
+    margin-top: 5px;
+    font-size: 14px;
+  }
+
+  .player-controls {
+    gap: clamp(12px, 5vw, 20px);
+  }
+
+  .icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .play-button {
+    width: 56px;
+    height: 56px;
+  }
+
+  .timeline-row {
+    font-size: 18px;
+  }
+
+  .player-tools {
+    gap: 14px;
+  }
+
+  .volume-track {
+    width: 86px;
+  }
+}
