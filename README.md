@@ -331,7 +331,9 @@ Nếu đổi backend port, cần cập nhật proxy trong `vite.config.js`.
 
 ## Liên hệ
 
-GitHub: https://github.com/MINHHUY24 Email: huyleminh93vvk@gmail.com Bạn có thể tạo issue trong GitHub repository nếu gặp lỗi hoặc muốn góp ý tính năng.
+- GitHub: https://github.com/MINHHUY24
+- Email: huyleminh93vvk@gmail.com
+- Bạn có thể tạo issue trong GitHub repository nếu gặp lỗi hoặc muốn góp ý tính năng.
 
 ## License
 
