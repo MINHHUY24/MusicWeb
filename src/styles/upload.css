@@ -1,8 +1,13 @@
 /* ==================== NOTE: Upload page - bố cục tổng ==================== */
 .upload-page {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
   max-width: 100%;
+  height: 100%;
+  min-height: 0;
   padding-top: 0;
+  overflow: visible;
 }
 
 .upload-page p:not(.page-kicker) {
@@ -12,79 +17,58 @@
 }
 
 /* NOTE: Upload page - header chính */
-.upload-page-heading,
-.upload-library-heading {
+.upload-page-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
-.upload-page-heading h2,
-.upload-library-heading h2 {
+.upload-page-heading h2 {
   color: #f7fbff;
   font-size: clamp(24px, 2.8vw, 34px);
   line-height: 1;
 }
 
-.upload-page-heading p,
-.upload-library-heading p {
+.upload-page-heading p {
   margin-top: 8px;
   color: rgb(230 238 250 / 0.66);
 }
 
-.upload-storage-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 14px;
-  color: rgb(232 244 255 / 0.88);
-  font-size: 13px;
-  font-weight: 800;
-  border: 1px solid rgb(232 244 255 / 0.18);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.07);
-}
-
 /* ==================== NOTE: Upload wizard - khung liquid glass ==================== */
-.upload-wizard,
-.upload-library {
+.upload-wizard {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgb(232 244 255 / 0.18);
+  border: 0;
   border-radius: 28px;
   background:
     radial-gradient(circle at 12% 0%, rgb(96 174 255 / 0.2), transparent 34%),
     linear-gradient(145deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.035)),
     rgb(5 17 28 / 0.72);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.2),
-    0 22px 64px rgb(0 0 0 / 0.28);
+  box-shadow: none;
   backdrop-filter: blur(24px) saturate(165%);
   -webkit-backdrop-filter: blur(24px) saturate(165%);
 }
 
-.upload-wizard::before,
-.upload-library::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
+.upload-wizard::before {
   content: "";
-  background:
-    linear-gradient(110deg, rgb(255 255 255 / 0.1), transparent 44%),
-    radial-gradient(circle at 82% 18%, rgb(91 234 207 / 0.09), transparent 35%);
+  display: none;
 }
 
 .upload-wizard {
   display: grid;
-  gap: 22px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: clamp(14px, 2.2vh, 22px);
   min-height: 0;
+  height: 100%;
   padding: clamp(18px, 2.5vw, 30px);
+  overflow: visible;
+}
+
+.upload-wizard:has(.upload-error) {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
 /* NOTE: Upload wizard - thanh step */
@@ -184,20 +168,27 @@
 
 /* ==================== NOTE: Upload wizard - nội dung từng bước ==================== */
 .upload-stage {
+  height: 100%;
   min-width: 0;
+  min-height: 0;
+  overflow: visible;
 }
 
 .upload-stage-file {
   display: grid;
   grid-template-columns: minmax(220px, 360px) minmax(0, 1fr);
-  align-items: center;
+  align-items: stretch;
   gap: clamp(18px, 3vw, 34px);
+  height: 100%;
+  overflow: hidden;
 }
 
 .upload-stage-copy {
   display: grid;
+  align-content: center;
   gap: 10px;
   min-width: 0;
+  min-height: 100%;
 }
 
 .upload-kicker {
@@ -251,8 +242,7 @@
 .upload-dropzone:active,
 .upload-cover-dropzone:active,
 .upload-primary-button:active,
-.upload-secondary-button:active,
-.upload-library-actions button:active {
+.upload-secondary-button:active {
   transform: translateY(1px) scale(0.99);
 }
 
@@ -268,7 +258,8 @@
 }
 
 .upload-dropzone {
-  min-height: clamp(250px, 32vh, 330px);
+  height: 100%;
+  min-height: 0;
   padding: 28px;
   border-radius: 24px;
 }
@@ -347,17 +338,33 @@
   font-size: 13px;
 }
 
-.upload-audio-card audio,
-.upload-library-actions audio {
+.upload-audio-card audio {
   width: 100%;
   min-width: 0;
   height: 36px;
+  color-scheme: dark;
+  accent-color: var(--accent-strong);
+  border-radius: 999px;
+  background: rgb(10 22 34 / 0.86);
+}
+
+.upload-audio-card audio::-webkit-media-controls-panel {
+  background:
+    linear-gradient(135deg, rgb(139 200 255 / 0.18), rgb(255 255 255 / 0.05)),
+    rgb(16 31 45);
+}
+
+.upload-audio-card audio::-webkit-media-controls-current-time-display,
+.upload-audio-card audio::-webkit-media-controls-time-remaining-display {
+  color: #f8fbff;
 }
 
 /* ==================== NOTE: Upload wizard - form thông tin track ==================== */
 .upload-stage-info {
   display: grid;
+  align-content: center;
   gap: 18px;
+  height: 100%;
 }
 
 .upload-info-grid {
@@ -431,6 +438,11 @@
   min-width: 0;
 }
 
+.upload-category-field {
+  position: relative;
+  z-index: 6;
+}
+
 .upload-field:last-child {
   grid-column: 1 / -1;
 }
@@ -462,10 +474,6 @@
   padding: 0 14px;
 }
 
-.upload-field select {
-  color-scheme: dark;
-}
-
 .upload-field textarea {
   height: 108px;
   min-height: 108px;
@@ -484,6 +492,178 @@
 .upload-field textarea:focus {
   border-color: rgb(185 220 255 / 0.58);
   box-shadow: 0 0 0 3px rgb(139 200 255 / 0.16);
+}
+
+.upload-category-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.upload-category-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  color: #f8fbff;
+  font: inherit;
+  text-align: left;
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 16px;
+  outline: 0;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03)),
+    rgb(10 22 34 / 0.74);
+  cursor: pointer;
+}
+
+.upload-category-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  color: #f8fbff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-category-trigger svg {
+  flex: 0 0 auto;
+  color: rgb(185 220 255 / 0.88);
+  transition: transform 0.2s ease;
+}
+
+.upload-category-picker-open .upload-category-trigger,
+.upload-category-trigger:focus-visible {
+  border-color: rgb(185 220 255 / 0.58);
+  box-shadow: 0 0 0 3px rgb(139 200 255 / 0.16);
+}
+
+.upload-category-picker-open .upload-category-trigger svg {
+  transform: rotate(180deg);
+}
+
+.upload-category-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: min(520px, calc(100vw - 48px));
+  min-width: 100%;
+  padding: 10px;
+  border: 1px solid rgb(185 220 255 / 0.34);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgb(31 49 65 / 0.98), rgb(11 24 36 / 0.98)),
+    rgb(11 24 36);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 22px 50px rgb(0 0 0 / 0.34);
+}
+
+.upload-category-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 11px;
+  color: rgb(185 220 255 / 0.9);
+  border: 1px solid rgb(232 244 255 / 0.14);
+  border-radius: 13px;
+  background: rgb(5 17 28 / 0.78);
+}
+
+.upload-category-search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  color: #f8fbff;
+  font: inherit;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.upload-category-search input::placeholder {
+  color: rgb(230 238 250 / 0.46);
+}
+
+.upload-category-search input:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.upload-category-options {
+  display: grid;
+  gap: 4px;
+  max-height: min(360px, 44vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.upload-category-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+.upload-category-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.upload-category-options::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(232 244 255 / 0.2);
+}
+
+.upload-category-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: rgb(238 245 255 / 0.84);
+  font: inherit;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.upload-category-option span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-category-option svg {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+}
+
+.upload-category-option:hover,
+.upload-category-option:focus-visible,
+.upload-category-option-selected {
+  color: #ffffff;
+  border-color: rgb(139 200 255 / 0.2);
+  outline: 0;
+  background: rgb(139 200 255 / 0.13);
+}
+
+.upload-category-empty {
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  color: rgb(232 240 250 / 0.58);
+  font-size: 13px;
+  text-align: center;
 }
 
 .upload-file-summary {
@@ -525,7 +705,7 @@
   display: grid;
   place-items: center;
   gap: 14px;
-  min-height: 330px;
+  min-height: 100%;
   text-align: center;
 }
 
@@ -642,128 +822,6 @@
   opacity: 0.62;
 }
 
-/* ==================== NOTE: Upload library - danh sách file đã lưu local ==================== */
-.upload-library {
-  margin-top: 24px;
-  padding: clamp(18px, 2.5vw, 28px);
-}
-
-.upload-library-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-}
-
-.upload-library-card {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 14px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid rgb(232 244 255 / 0.14);
-  border-radius: 22px;
-  background: rgb(255 255 255 / 0.05);
-}
-
-.upload-library-cover {
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  overflow: hidden;
-  color: var(--accent-strong);
-  border: 1px solid rgb(232 244 255 / 0.14);
-  border-radius: 18px;
-  background: rgb(255 255 255 / 0.08);
-}
-
-.upload-library-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.upload-library-content {
-  display: grid;
-  align-content: center;
-  min-width: 0;
-}
-
-.upload-library-content strong,
-.upload-library-content span,
-.upload-library-content small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.upload-library-content strong {
-  color: #ffffff;
-  font-size: 16px;
-}
-
-.upload-library-content span {
-  margin-top: 4px;
-  color: rgb(232 240 250 / 0.66);
-}
-
-.upload-library-content small {
-  margin-top: 5px;
-  color: rgb(232 240 250 / 0.52);
-  font-size: 12px;
-}
-
-.upload-library-actions {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
-  align-items: center;
-  gap: 10px;
-}
-
-.upload-library-actions button {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  color: rgb(240 247 255 / 0.86);
-  border: 1px solid rgb(232 244 255 / 0.14);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.06);
-  cursor: pointer;
-}
-
-.upload-library-actions button:hover {
-  color: #ffffff;
-  border-color: rgb(255 159 176 / 0.34);
-  background: rgb(122 28 46 / 0.22);
-}
-
-.upload-library-empty {
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  min-height: 190px;
-  color: rgb(232 244 255 / 0.58);
-  text-align: center;
-  border: 1px dashed rgb(232 244 255 / 0.14);
-  border-radius: 22px;
-  background: rgb(255 255 255 / 0.035);
-}
-
-.upload-library-empty svg {
-  color: var(--accent);
-}
-
-.upload-library-empty strong {
-  color: #ffffff;
-  font-size: 17px;
-}
-
-.upload-library-empty span {
-  color: rgb(232 240 250 / 0.62);
-}
-
 @media (max-width: 980px) {
   .upload-stage-file {
     grid-template-columns: 1fr;
@@ -787,18 +845,18 @@
 }
 
 @media (max-width: 760px) {
-  .upload-page-heading,
-  .upload-library-heading {
+  .upload-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .upload-page-heading {
     display: grid;
     margin-bottom: 18px;
   }
 
-  .upload-storage-badge {
-    justify-self: start;
-  }
-
-  .upload-wizard,
-  .upload-library {
+  .upload-wizard {
+    height: auto;
     padding: 16px;
     border-radius: 24px;
   }
@@ -814,6 +872,19 @@
   .upload-stage-file,
   .upload-info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .upload-stage,
+  .upload-stage-file,
+  .upload-stage-copy,
+  .upload-stage-info,
+  .upload-stage-done {
+    height: auto;
+    min-height: 0;
+  }
+
+  .upload-dropzone {
+    height: auto;
   }
 
   .upload-cover-block {
@@ -834,14 +905,10 @@
     width: 100%;
   }
 
-  .upload-library-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 420px) {
-  .upload-wizard,
-  .upload-library {
+  .upload-wizard {
     padding: 14px;
     border-radius: 22px;
   }
@@ -860,12 +927,4 @@
     grid-template-columns: 1fr;
   }
 
-  .upload-library-card {
-    grid-template-columns: 64px minmax(0, 1fr);
-  }
-
-  .upload-library-cover {
-    width: 64px;
-    height: 64px;
-  }
 }

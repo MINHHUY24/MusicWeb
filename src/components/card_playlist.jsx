@@ -1,4 +1,5 @@
 import { DotsThreeVertical, MusicNotesSimple, Play, Plus } from '@phosphor-icons/react'
+import { useLanguage } from '../i18n.jsx'
 import '../styles/card_playlist.css'
 
 function CardPlaylist({
@@ -12,6 +13,8 @@ function CardPlaylist({
   isCreate = false,
   onClick,
 }) {
+  const { t } = useLanguage()
+
   return (
     // NOTE: Component card_playlist dùng chung cho trang Playlist
     <button
@@ -47,7 +50,7 @@ function CardPlaylist({
         <span className="card_playlist-description">{description}</span>
 
         <span className="card_playlist-meta">
-          <span>{isCreate ? 'Thêm bài hát yêu thích' : `${songCount} bài hát`}</span>
+          <span>{isCreate ? t('card.favoriteSongs') : t('card.songCount', { count: songCount })}</span>
           {!isCreate && duration ? <span>{duration}</span> : null}
         </span>
       </span>

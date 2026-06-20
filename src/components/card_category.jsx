@@ -1,4 +1,5 @@
 import { CaretRight, MusicNotesSimple, Play } from '@phosphor-icons/react'
+import { useLanguage } from '../i18n.jsx'
 import '../styles/card_category.css'
 
 function CardCategory({
@@ -10,6 +11,8 @@ function CardCategory({
   tone = 'blue',
   onClick,
 }) {
+  const { t } = useLanguage()
+
   return (
     // NOTE: Component card_category dùng chung cho trang Category
     <button className="card_category" data-tone={tone} type="button" onClick={onClick}>
@@ -36,7 +39,7 @@ function CardCategory({
         </span>
 
         <span className="card_category-description">{description}</span>
-        <span className="card_category-meta">{songCount} bài hát</span>
+        <span className="card_category-meta">{t('card.songCount', { count: songCount })}</span>
       </span>
     </button>
   )

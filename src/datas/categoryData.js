@@ -1,6 +1,4 @@
-import { songLibrary } from "./songData.js";
-
-const categoryDefinitions = [
+export const categoryDefinitions = [
   {
     id: "vpop",
     title: "V-pop",
@@ -20,28 +18,117 @@ const categoryDefinitions = [
     tone: "mint",
   },
   {
+    id: "kpop",
+    title: "K-pop",
+    description: "Nhạc Hàn Quốc nổi bật và bắt tai",
+    tone: "rose",
+  },
+  {
+    id: "rap",
+    title: "Rap",
+    description: "Flow, lyrics và nhịp mạnh",
+    tone: "amber",
+  },
+  {
+    id: "rnb",
+    title: "R&B",
+    description: "Giai điệu mượt và nhiều groove",
+    tone: "rose",
+  },
+  {
+    id: "rock",
+    title: "Rock",
+    description: "Guitar, trống và năng lượng mạnh",
+    tone: "violet",
+  },
+  {
+    id: "ballad",
+    title: "Ballad",
+    description: "Ca khúc chậm và giàu cảm xúc",
+    tone: "blue",
+  },
+  {
+    id: "edm",
+    title: "EDM",
+    description: "Beat điện tử dành cho không khí sôi động",
+    tone: "mint",
+  },
+  {
+    id: "dance",
+    title: "Dance",
+    description: "Nhịp nhanh và dễ chuyển động",
+    tone: "rose",
+  },
+  {
+    id: "acoustic",
+    title: "Acoustic",
+    description: "Bản phối mộc và gần gũi",
+    tone: "amber",
+  },
+  {
+    id: "indie",
+    title: "Indie",
+    description: "Màu nhạc độc lập và cá tính",
+    tone: "violet",
+  },
+  {
+    id: "lofi",
+    title: "Lo-fi",
+    description: "Âm thanh nhẹ để thư giãn và tập trung",
+    tone: "mint",
+  },
+  {
+    id: "jazz",
+    title: "Jazz",
+    description: "Hòa âm ngẫu hứng và tinh tế",
+    tone: "blue",
+  },
+  {
+    id: "classical",
+    title: "Classical",
+    description: "Nhạc cổ điển và giao hưởng",
+    tone: "violet",
+  },
+  {
+    id: "country",
+    title: "Country",
+    description: "Giai điệu mộc, kể chuyện và gần gũi",
+    tone: "amber",
+  },
+  {
+    id: "bolero",
+    title: "Bolero",
+    description: "Trữ tình và hoài niệm",
+    tone: "rose",
+  },
+  {
+    id: "remix",
+    title: "Remix",
+    description: "Bản phối lại với màu sắc mới",
+    tone: "mint",
+  },
+  {
+    id: "cover",
+    title: "Cover",
+    description: "Những bản hát lại hoặc làm mới",
+    tone: "blue",
+  },
+  {
+    id: "instrumental",
+    title: "Instrumental",
+    description: "Nhạc không lời và beat nền",
+    tone: "violet",
+  },
+  {
+    id: "soundtrack",
+    title: "Soundtrack",
+    description: "Nhạc phim, game và sân khấu",
+    tone: "amber",
+  },
+  {
     id: "other",
     title: "Other",
     description: "Các track upload chưa phân loại",
     tone: "violet",
   },
 ];
-
-export const categories = categoryDefinitions
-  .map((category) => {
-    const tracks = songLibrary.filter((song) => song.category === category.id);
-
-    return {
-      ...category,
-      songCount: tracks.length,
-      cover: tracks[0]?.cover,
-    };
-  })
-  .filter((category) => category.songCount > 0);
-
-export const categoryTracks = Object.fromEntries(
-  categories.map((category) => [
-    category.id,
-    songLibrary.filter((song) => song.category === category.id),
-  ]),
-);

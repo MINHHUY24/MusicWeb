@@ -1,0 +1,53 @@
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: min(430px, 58dvh);
+  padding: 44px 24px;
+  color: #edf6ff;
+  text-align: center;
+}
+
+.loading-state-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  color: #9ad0ff;
+  border: 1px solid rgb(232 244 255 / 0.28);
+  border-radius: 999px;
+  background: rgb(156 205 255 / 0.1);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 18px 40px rgb(0 0 0 / 0.22);
+}
+
+.loading-state-loading .loading-state-icon svg {
+  animation: loading-state-spin 0.9s linear infinite;
+}
+
+.loading-state strong {
+  font-size: clamp(21px, 2.5vw, 28px);
+  line-height: 1.15;
+}
+
+.loading-state span:not(.loading-state-icon) {
+  max-width: 420px;
+  color: rgb(229 239 252 / 0.72);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.loading-state-error .loading-state-icon {
+  color: #ffd1d1;
+  background: rgb(255 108 108 / 0.12);
+}
+
+@keyframes loading-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

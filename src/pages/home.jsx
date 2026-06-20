@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import CardMusic from "../components/card_music.jsx";
-import {
-  chillSongs,
-  newReleaseSongs,
-  trendingSongs,
-} from "../datas/homeData.js";
+import LoadingState from "../components/loading_state.jsx";
+import { useLanguage } from "../i18n.jsx";
 
 function MusicLane({ title, songs: laneSongs, onSongClick, getArtist, player }) {
+  const { t } = useLanguage();
   const laneScrollRef = useRef(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
@@ -64,7 +62,7 @@ function MusicLane({ title, songs: laneSongs, onSongClick, getArtist, player }) 
             aria-expanded={isExpanded}
             onClick={() => setIsExpanded((currentValue) => !currentValue)}
           >
-            {isExpanded ? "Thu gọn" : "Xem thêm >"}
+            {isExpanded ? t("home.collapse") : t("home.seeMore")}
           </button>
         ) : null}
       </div>
@@ -90,24 +88,70 @@ function MusicLane({ title, songs: laneSongs, onSongClick, getArtist, player }) 
   );
 }
 
-function Home({ player }) {
-  const [clickCounts, setClickCounts] = useState(() =>
-    Object.fromEntries(trendingSongs.map((song) => [song.id, song.clicks])),
-  );
+function Home({ player, songs = [], isLoading = false, error = "" }) {
+  const { t } = useLanguage();
+  const [clickCounts, setClickCounts] = useState({});
 
   const favoriteSongs = useMemo(
     () =>
-      trendingSongs
-        .map((song) => ({ ...song, clicks: clickCounts[song.id] ?? 0 }))
+      songs
+        .map((song) => ({ ...song, clicks: clickCounts[song.id] ?? song.clicks ?? 0 }))
         .sort((firstSong, secondSong) => secondSong.clicks - firstSong.clicks),
-    [clickCounts],
+    [clickCounts, songs],
   );
 
+  const chillLaneSongs = useMemo(
+    () => [
+      ...songs.filter((song) => song.category === "vpop"),
+      ...songs.filter((song) => song.category !== "vpop"),
+    ],
+    [songs],
+  );
+  const newReleaseLaneSongs = useMemo(() => [...songs].reverse(), [songs]);
+
   function handleSongClick(songId) {
+    const baseClicks = songs.find((song) => song.id === songId)?.clicks ?? 0;
+
     setClickCounts((currentCounts) => ({
       ...currentCounts,
-      [songId]: (currentCounts[songId] ?? 0) + 1,
+      [songId]: (currentCounts[songId] ?? baseClicks) + 1,
     }));
+  }
+
+  if (isLoading) {
+    return (
+      <section className="page-section home-page page-loading-page">
+        <LoadingState
+          title={t("common.waitingTitle")}
+          description={t("common.waitingMusicDescription")}
+          quiet
+        />
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="page-section home-page page-loading-page">
+        <LoadingState
+          title={t("common.musicLoadErrorTitle")}
+          description={error}
+          variant="error"
+        />
+      </section>
+    );
+  }
+
+  if (!songs.length) {
+    return (
+      <section className="page-section home-page">
+        <LoadingState
+          title={t("common.emptyMusicTitle")}
+          description={t("common.emptyMusicDescription")}
+          variant="empty"
+        />
+      </section>
+    );
   }
 
   return (
@@ -115,14 +159,20 @@ function Home({ player }) {
       {/* NOTE: Phần 3 swimlane bài hát cuộn ngang */}
       <div className="home-swimlanes">
         <MusicLane
-          title="Trending Music"
+          title={t("home.trending")}
           songs={favoriteSongs}
-          getArtist={(song) => `${song.description} • ${song.clicks} clicks`}
+          getArtist={(song) =>
+            `${t(`songs.${song.id}.description`, {}, song.description)} • ${song.clicks} ${t("home.clicks")}`
+          }
           onSongClick={handleSongClick}
           player={player}
         />
-        <MusicLane title="Chill" songs={chillSongs} player={player} />
-        <MusicLane title="Mới phát hành" songs={newReleaseSongs} player={player} />
+        <MusicLane title={t("home.chill")} songs={chillLaneSongs} player={player} />
+        <MusicLane
+          title={t("home.newRelease")}
+          songs={newReleaseLaneSongs}
+          player={player}
+        />
       </div>
     </section>
   );

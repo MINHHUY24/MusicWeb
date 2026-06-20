@@ -1,4 +1,4 @@
-import { categories } from "./categoryData.js";
+import { categoryDefinitions } from "./categoryData.js";
 
 export const uploadSteps = [
   {
@@ -14,17 +14,14 @@ export const uploadSteps = [
   {
     id: "track-done",
     label: "Hoàn tất",
-    description: "Track đã lưu vào local",
+    description: "Track đã lưu vào Supabase",
   },
 ];
 
-export const uploadCategories = [
-  { value: "other", label: "Other" },
-  ...categories.map((category) => ({
-    value: category.id,
-    label: category.title,
-  })),
-];
+export const uploadCategories = categoryDefinitions.map((category) => ({
+  value: category.id,
+  label: category.title,
+}));
 
 export const audioFileAccept =
   "audio/*,.wav,.flac,.aiff,.aif,.alac,.mp3,.m4a,.ogg";
@@ -34,6 +31,6 @@ export const coverFileAccept = "image/*";
 export const initialUploadForm = {
   title: "",
   artist: "",
-  category: "other",
+  category: "vpop",
   description: "",
 };

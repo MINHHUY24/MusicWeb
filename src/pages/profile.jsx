@@ -1,94 +1,88 @@
 import {
   ClockCounterClockwise,
+  CircleNotch,
   Heart,
   MusicNotesSimple,
   Play,
-  Sparkle,
+  Trash,
   UploadSimple,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import LoadingState from "../components/loading_state.jsx";
+import UserAvatar from "../components/user_avatar.jsx";
 import {
-  favoriteTracks,
-  listeningHistory,
+  mapFavoriteTracks,
+  mapListeningHistory,
   profileStats,
   userProfile,
 } from "../datas/profileData.js";
-import { getStoredTracks, isUploadStorageAvailable } from "../datas/uploadStorage.js";
+import { deleteStoredTrack } from "../datas/uploadStorage.js";
+import { useLanguage } from "../i18n.jsx";
+import { getUserAvatar, getUserDisplayName } from "../lib/supabaseClient.js";
 import "../styles/profile.css";
 
 const profileTabs = [
-  { id: "favorites", label: "Yêu thích", icon: Heart },
-  { id: "history", label: "Lịch sử", icon: ClockCounterClockwise },
-  { id: "uploaded", label: "Nhạc đã up", icon: UploadSimple },
+  { id: "favorites", labelKey: "profile.tabs.favorites", icon: Heart },
+  {
+    id: "history",
+    labelKey: "profile.tabs.history",
+    icon: ClockCounterClockwise,
+  },
+  { id: "uploaded", labelKey: "profile.tabs.uploaded", icon: UploadSimple },
 ];
 
-function formatCreatedAt(value) {
-  if (!value) return "Local upload";
+function formatCreatedAt(value, language, t) {
+  if (!value) return t("profile.supabaseUpload");
 
-  return new Intl.DateTimeFormat("vi-VN", {
+  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(new Date(value));
 }
 
-function revokeObjectUrls(urls) {
-  Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
-}
-
-function Profile({ player }) {
+function Profile({
+  auth,
+  player,
+  favoriteTracks = [],
+  listeningHistoryTracks = [],
+  uploadedTracks = [],
+  isLoading = false,
+  error = "",
+}) {
+  const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("favorites");
-  const [uploadedTracks, setUploadedTracks] = useState([]);
-  const [uploadedUrls, setUploadedUrls] = useState({});
-  const uploadedUrlsRef = useRef({});
-
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!isUploadStorageAvailable()) {
-      return undefined;
-    }
-
-    getStoredTracks().then((tracks) => {
-      const urls = {};
-
-      tracks.forEach((track) => {
-        if (track.coverBlob) {
-          urls[`${track.id}-cover`] = URL.createObjectURL(track.coverBlob);
-        }
-
-        if (track.audioBlob) {
-          urls[`${track.id}-audio`] = URL.createObjectURL(track.audioBlob);
-        }
-      });
-
-      if (isMounted) {
-        uploadedUrlsRef.current = urls;
-        setUploadedUrls(urls);
-        setUploadedTracks(tracks);
-      } else {
-        revokeObjectUrls(urls);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      revokeObjectUrls(uploadedUrlsRef.current);
-    };
-  }, []);
+  const [deletingTrackId, setDeletingTrackId] = useState("");
+  const [pendingDeleteTrack, setPendingDeleteTrack] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const favoriteRows = useMemo(
+    () => mapFavoriteTracks(favoriteTracks),
+    [favoriteTracks],
+  );
+  const historyRows = useMemo(
+    () => mapListeningHistory(listeningHistoryTracks),
+    [listeningHistoryTracks],
+  );
+  const profileName = getUserDisplayName(auth?.user) || userProfile.name;
+  const profileAvatar = getUserAvatar(auth?.user) || userProfile.avatar;
+  const profileUsername = auth?.user?.email
+    ? `@${auth.user.email.split("@")[0]}`
+    : userProfile.username;
 
   const uploadedRows = useMemo(() => {
     return uploadedTracks.map((track) => ({
       id: track.id,
       title: track.title,
       artist: track.artist,
-      duration: track.durationLabel || "Chưa rõ",
-      cover: uploadedUrls[`${track.id}-cover`],
-      audio: uploadedUrls[`${track.id}-audio`],
-      meta: formatCreatedAt(track.createdAt),
+      duration:
+        track.durationLabel || track.duration || t("profile.unknownDuration"),
+      cover: track.cover,
+      audio: track.audio,
+      meta: formatCreatedAt(track.createdAt, language, t),
+      isUploaded: true,
     }));
-  }, [uploadedTracks, uploadedUrls]);
+  }, [language, t, uploadedTracks]);
 
   const tabsWithCount = useMemo(
     () =>
@@ -96,40 +90,142 @@ function Profile({ player }) {
         ...tab,
         count:
           tab.id === "favorites"
-            ? favoriteTracks.length
+            ? favoriteRows.length
             : tab.id === "history"
-              ? listeningHistory.length
+              ? historyRows.length
               : uploadedRows.length,
       })),
-    [uploadedRows.length],
+    [favoriteRows.length, historyRows.length, uploadedRows.length],
   );
 
   const activeTracks = useMemo(() => {
-    if (activeTab === "history") return listeningHistory;
+    if (activeTab === "history") return historyRows;
     if (activeTab === "uploaded") return uploadedRows;
 
-    return favoriteTracks;
-  }, [activeTab, uploadedRows]);
+    return favoriteRows;
+  }, [activeTab, favoriteRows, historyRows, uploadedRows]);
+  const emptyState = useMemo(() => {
+    if (activeTab === "favorites") {
+      return {
+        Icon: Heart,
+        title: t("profile.noFavoritesTitle"),
+        description: t("profile.noFavoritesDescription"),
+      };
+    }
+
+    if (activeTab === "history") {
+      return {
+        Icon: ClockCounterClockwise,
+        title: t("profile.noHistoryTitle"),
+        description: t("profile.noHistoryDescription"),
+      };
+    }
+
+    return {
+      Icon: UploadSimple,
+      title: t("profile.noUploadedTitle"),
+      description: t("profile.noUploadedDescription"),
+      action: t("profile.goToUpload"),
+    };
+  }, [activeTab, t]);
 
   const displayStats = profileStats.map((stat) =>
-    stat.id === "uploaded" ? { ...stat, value: uploadedRows.length } : stat,
+    stat.id === "uploaded"
+      ? {
+          ...stat,
+          label: t(`profile.stats.${stat.id}`, {}, stat.label),
+          value: uploadedRows.length,
+        }
+      : stat.id === "liked"
+        ? {
+            ...stat,
+            label: t(`profile.stats.${stat.id}`, {}, stat.label),
+            value: favoriteRows.length,
+          }
+        : stat.id === "history"
+          ? {
+              ...stat,
+              label: t(`profile.stats.${stat.id}`, {}, stat.label),
+              value: historyRows.length,
+            }
+          : { ...stat, label: t(`profile.stats.${stat.id}`, {}, stat.label) },
   );
+  const EmptyStateIcon = emptyState.Icon;
+
+  useEffect(() => {
+    document.body.classList.toggle(
+      "profile-delete-dialog-active",
+      Boolean(pendingDeleteTrack),
+    );
+
+    return () => {
+      document.body.classList.remove("profile-delete-dialog-active");
+    };
+  }, [pendingDeleteTrack]);
+
+  function handleTrackKeyDown(event, track, index) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target.closest?.("button")) return;
+
+    event.preventDefault();
+    player?.playQueue(activeTracks, index);
+  }
+
+  function openDeleteDialog(event, track) {
+    event.stopPropagation();
+
+    if (deletingTrackId) return;
+
+    setPendingDeleteTrack(track);
+    setDeleteError("");
+  }
+
+  function closeDeleteDialog() {
+    if (deletingTrackId) return;
+
+    setPendingDeleteTrack(null);
+  }
+
+  async function confirmDeleteTrack() {
+    if (!pendingDeleteTrack || deletingTrackId) return;
+
+    setDeletingTrackId(pendingDeleteTrack.id);
+    setDeleteError("");
+
+    try {
+      await deleteStoredTrack(
+        pendingDeleteTrack.id,
+        auth?.session?.access_token,
+      );
+      setPendingDeleteTrack(null);
+      window.dispatchEvent(new CustomEvent("musicweb:tracks-updated"));
+    } catch (deleteTrackError) {
+      setDeleteError(
+        deleteTrackError instanceof Error
+          ? deleteTrackError.message
+          : t("profile.deleteTrackFailed"),
+      );
+    } finally {
+      setDeletingTrackId("");
+    }
+  }
 
   return (
     <section className="page-section profile-page">
       {/* NOTE: Profile hero - thông tin người dùng */}
-      <section className="profile-hero" aria-label="Profile information">
+      <section className="profile-hero" aria-label={t("profile.info")}>
         <div className="profile-cover" />
 
         <div className="profile-identity">
-          <div className="profile-avatar">
-            <img src={userProfile.avatar} alt={userProfile.name} />
-          </div>
+          <UserAvatar
+            className="profile-avatar"
+            src={profileAvatar}
+            name={profileName}
+          />
 
           <div className="profile-copy">
-            <span>{userProfile.username}</span>
-            <h2>{userProfile.name}</h2>
-            <p>{userProfile.bio}</p>
+            <span>{profileUsername}</span>
+            <h2>{profileName}</h2>
           </div>
         </div>
 
@@ -144,20 +240,12 @@ function Profile({ player }) {
       </section>
 
       {/* NOTE: Profile music - chia nhạc thành 3 tab */}
-      <section className="profile-music-panel" aria-label="Profile music">
-        <div className="profile-music-heading">
-          <div>
-            <h2>Nhạc của bạn</h2>
-            <p>Chia theo bài yêu thích, lịch sử nghe và các track đã upload.</p>
-          </div>
-
-          <span className="profile-music-badge">
-            <Sparkle size={17} weight="fill" />
-            {activeTracks.length} bài
-          </span>
-        </div>
-
-        <div className="profile-tabs" role="tablist" aria-label="Music sections">
+      <section className="profile-music-panel" aria-label={t("profile.music")}>
+        <div
+          className="profile-tabs"
+          role="tablist"
+          aria-label={t("profile.musicSections")}
+        >
           {tabsWithCount.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -165,28 +253,51 @@ function Profile({ player }) {
             return (
               <button
                 key={tab.id}
-                className={isActive ? "profile-tab profile-tab-active" : "profile-tab"}
+                className={
+                  isActive ? "profile-tab profile-tab-active" : "profile-tab"
+                }
                 type="button"
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.id)}
               >
                 <Icon size={19} weight={isActive ? "fill" : "bold"} />
-                <span>{tab.label}</span>
+                <span>{t(tab.labelKey)}</span>
                 <small>{tab.count}</small>
               </button>
             );
           })}
         </div>
 
-        {activeTracks.length ? (
+        {isLoading ? (
+          <LoadingState
+            title={t("common.waitingTitle")}
+            description={t("common.waitingMusicDescription")}
+            quiet
+          />
+        ) : error ? (
+          <LoadingState
+            title={t("common.waitingTitle")}
+            description={t("common.waitingMusicDescription")}
+            quiet
+          />
+        ) : activeTracks.length ? (
           <div className="profile-track-list">
+            {deleteError ? (
+              <div className="profile-delete-error">{deleteError}</div>
+            ) : null}
             {activeTracks.map((track, index) => (
-              <button
-                className="profile-track-row"
-                type="button"
+              <div
+                className={
+                  track.isUploaded
+                    ? "profile-track-row profile-track-row-uploaded"
+                    : "profile-track-row"
+                }
+                role="button"
+                tabIndex={0}
                 key={track.id}
                 onClick={() => player?.playQueue(activeTracks, index)}
+                onKeyDown={(event) => handleTrackKeyDown(event, track, index)}
               >
                 <span className="profile-track-cover">
                   {track.cover ? (
@@ -204,20 +315,102 @@ function Profile({ player }) {
                   <span>{track.artist}</span>
                 </span>
 
-                <span className="profile-track-meta">{track.meta}</span>
+                <span className="profile-track-meta">
+                  {track.metaKey
+                    ? t(track.metaKey)
+                    : t(
+                        `categories.${track.category}.title`,
+                        {},
+                        track.meta || "",
+                      )}
+                </span>
                 <span className="profile-track-duration">{track.duration}</span>
-              </button>
+                {track.isUploaded ? (
+                  <button
+                    className="profile-track-delete"
+                    type="button"
+                    aria-label={t("profile.deleteTrack", {
+                      title: track.title,
+                    })}
+                    disabled={deletingTrackId === track.id}
+                    onClick={(event) => openDeleteDialog(event, track)}
+                  >
+                    {deletingTrackId === track.id ? (
+                      <CircleNotch size={18} weight="bold" />
+                    ) : (
+                      <Trash size={18} weight="bold" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
             ))}
           </div>
         ) : (
           <div className="profile-empty-state">
-            <UploadSimple size={42} weight="bold" />
-            <strong>Chưa có nhạc đã upload</strong>
-            <span>Upload track đầu tiên để danh sách này tự cập nhật.</span>
-            <Link to="/upload">Đi tới Upload</Link>
+            <EmptyStateIcon size={42} weight="bold" />
+            <strong>{emptyState.title}</strong>
+            <span>{emptyState.description}</span>
+            {emptyState.action ? (
+              <Link to="/upload">{emptyState.action}</Link>
+            ) : null}
           </div>
         )}
       </section>
+
+      {pendingDeleteTrack ? (
+        <div
+          className="profile-delete-dialog-backdrop"
+          role="presentation"
+          onMouseDown={closeDeleteDialog}
+        >
+          <section
+            className="profile-delete-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-delete-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="profile-delete-dialog-icon">
+              <Trash size={28} weight="bold" />
+            </div>
+
+            <div className="profile-delete-dialog-copy">
+              <h3 id="profile-delete-title">{t("profile.deleteTrackTitle")}</h3>
+              <p>
+                {t("profile.deleteTrackConfirm", {
+                  title: pendingDeleteTrack.title,
+                })}
+              </p>
+            </div>
+
+            <div className="profile-delete-dialog-actions">
+              <button
+                className="profile-delete-cancel"
+                type="button"
+                disabled={Boolean(deletingTrackId)}
+                onClick={closeDeleteDialog}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="profile-delete-confirm"
+                type="button"
+                disabled={Boolean(deletingTrackId)}
+                onClick={confirmDeleteTrack}
+              >
+                {deletingTrackId ? (
+                  <CircleNotch size={18} weight="bold" />
+                ) : (
+                  <Trash size={18} weight="bold" />
+                )}
+                {deletingTrackId
+                  ? t("profile.deletingTrack")
+                  : t("profile.deleteTrackAction")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

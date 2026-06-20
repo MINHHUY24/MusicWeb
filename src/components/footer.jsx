@@ -1,4 +1,5 @@
 import {
+  Heart,
   MusicNotesSimple,
   Pause,
   Play,
@@ -9,6 +10,7 @@ import {
   SpeakerHigh,
 } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLanguage } from '../i18n.jsx'
 
 function formatTime(value) {
   if (!Number.isFinite(value) || value <= 0) return '0:00'
@@ -20,7 +22,9 @@ function formatTime(value) {
 }
 
 function Footer({ player }) {
+  const { t } = useLanguage()
   const audioRef = useRef(null)
+  const queueRef = useRef(null)
   const [duration, setDuration] = useState(0)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const {
@@ -28,6 +32,7 @@ function Footer({ player }) {
     currentSongIndex,
     currentTime,
     isPlaying,
+    isCurrentSongFavorite,
     isShuffleOn,
     playerQueue,
     repeatMode,
@@ -39,6 +44,7 @@ function Footer({ player }) {
     onSeek,
     onTimeUpdate,
     onTogglePlay,
+    onToggleFavorite,
     onToggleShuffle,
     onVolumeChange,
     volume,
@@ -68,6 +74,30 @@ function Footer({ player }) {
 
     audio.volume = volume
   }, [volume])
+
+  useEffect(() => {
+    if (!isQueueOpen) return undefined
+
+    function handlePointerDown(event) {
+      if (!queueRef.current?.contains(event.target)) {
+        setIsQueueOpen(false)
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setIsQueueOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isQueueOpen])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -107,7 +137,7 @@ function Footer({ player }) {
 
   return (
     // NOTE: Phần thanh phát nhạc dưới cùng
-    <footer className="player-bar" aria-label="Music player">
+    <footer className="player-bar" aria-label={t('footer.musicPlayer')}>
       <audio
         ref={audioRef}
         src={currentSong?.audio || undefined}
@@ -126,41 +156,56 @@ function Footer({ player }) {
           )}
         </div>
         <div className="song-copy">
-          <p className="song-title">{currentSong?.title || 'No Song Playing'}</p>
-          <p className="song-artist">{currentSong?.artist || 'Unknown Artist'}</p>
+          <p className="song-title">{currentSong?.title || t('common.noSongPlaying')}</p>
+          <p className="song-artist">{currentSong?.artist || t('common.unknownArtist')}</p>
         </div>
       </div>
 
       {/* NOTE: Phần nút điều khiển phát nhạc và timeline */}
       <div className="player-center">
-        <div className="player-controls" aria-label="Playback controls">
+        <div className="player-controls" aria-label={t('footer.playbackControls')}>
           <button
             className={isShuffleOn ? 'icon-button icon-button-active' : 'icon-button'}
             type="button"
-            aria-label="Shuffle"
+            aria-label={t('footer.shuffle')}
             aria-pressed={isShuffleOn}
             onClick={onToggleShuffle}
           >
             <Shuffle size={23} weight="bold" />
           </button>
-          <button className="icon-button" type="button" aria-label="Previous" onClick={onPrevious}>
+          <button className="icon-button" type="button" aria-label={t('footer.previous')} onClick={onPrevious}>
             <SkipBack size={23} weight="fill" />
           </button>
-          <button className="play-button" type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={onTogglePlay}>
+          <button
+            className="play-button"
+            type="button"
+            aria-label={isPlaying ? t('footer.pause') : t('footer.play')}
+            onClick={onTogglePlay}
+          >
             {isPlaying ? <Pause size={24} weight="fill" /> : <Play size={24} weight="fill" />}
           </button>
-          <button className="icon-button" type="button" aria-label="Next" onClick={onNext}>
+          <button className="icon-button" type="button" aria-label={t('footer.next')} onClick={onNext}>
             <SkipForward size={23} weight="fill" />
           </button>
           <button
             className={repeatMode === 'off' ? 'icon-button' : 'icon-button icon-button-active repeat-button'}
             type="button"
-            aria-label="Repeat"
+            aria-label={t('footer.repeat')}
             aria-pressed={repeatMode !== 'off'}
             data-repeat-mode={repeatMode}
             onClick={cycleRepeatMode}
           >
             <Repeat size={23} weight="bold" />
+          </button>
+          <button
+            className={isCurrentSongFavorite ? 'icon-button icon-button-active' : 'icon-button'}
+            type="button"
+            aria-label={isCurrentSongFavorite ? t('footer.unfavorite') : t('footer.favorite')}
+            aria-pressed={isCurrentSongFavorite}
+            disabled={!currentSong}
+            onClick={onToggleFavorite}
+          >
+            <Heart size={23} weight={isCurrentSongFavorite ? 'fill' : 'bold'} />
           </button>
         </div>
 
@@ -175,7 +220,7 @@ function Footer({ player }) {
             step="0.1"
             value={Math.min(currentTime, duration || 0)}
             onChange={handleSeek}
-            aria-label="Tua bài hát"
+            aria-label={t('footer.seek')}
             style={{ '--progress': `${duration ? (currentTime / duration) * 100 : 0}%` }}
           />
           <span>{formatTime(duration)}</span>
@@ -183,7 +228,7 @@ function Footer({ player }) {
       </div>
 
       {/* NOTE: Phần âm lượng và danh sách phát */}
-      <div className="player-tools">
+      <div className="player-tools" ref={queueRef}>
         <SpeakerHigh size={25} weight="fill" />
         <input
           className="volume-range"
@@ -193,48 +238,60 @@ function Footer({ player }) {
           step="0.01"
           value={volume}
           onChange={(event) => onVolumeChange(Number(event.target.value))}
-          aria-label="Âm lượng"
+          aria-label={t('footer.volume')}
           style={{ '--progress': `${volume * 100}%` }}
         />
         <div className="tool-divider" />
         <button
           className={isQueueOpen ? 'queue-toggle queue-toggle-active' : 'queue-toggle'}
           type="button"
-          aria-label="Danh sách tiếp theo"
+          aria-label={t('footer.queue')}
           aria-expanded={isQueueOpen}
           onClick={() => setIsQueueOpen((value) => !value)}
         >
           <MusicNotesSimple size={25} weight="bold" />
         </button>
+
+        <aside
+          className={isQueueOpen ? 'queue-panel queue-panel-open' : 'queue-panel'}
+          role="dialog"
+          aria-label={t('footer.queue')}
+        >
+          <div className="queue-panel-heading">
+            <strong>{t('footer.queueTitle')}</strong>
+            <button type="button" onClick={() => setIsQueueOpen(false)} aria-label={t('footer.closeQueue')}>
+              {t('common.close')}
+            </button>
+          </div>
+
+          <div className="queue-list">
+            {nextSongs.length ? (
+              nextSongs.map(({ song, index }) => (
+                <button
+                  className="queue-row"
+                  type="button"
+                  key={`${song.id}-${index}`}
+                  onClick={() => {
+                    onPlayIndex(index)
+                    setIsQueueOpen(false)
+                  }}
+                >
+                  <span className="queue-cover">
+                    {song.cover ? <img src={song.cover} alt={song.title} /> : <MusicNotesSimple size={20} weight="fill" />}
+                  </span>
+                  <span className="queue-copy">
+                    <strong>{song.title}</strong>
+                    <small>{song.artist}</small>
+                  </span>
+                  <span>{song.duration}</span>
+                </button>
+              ))
+            ) : (
+              <p className="queue-empty">{t('footer.emptyQueue')}</p>
+            )}
+          </div>
+        </aside>
       </div>
-
-      <aside className={isQueueOpen ? 'queue-panel queue-panel-open' : 'queue-panel'} aria-label="Danh sách tiếp theo">
-        <div className="queue-panel-heading">
-          <strong>Tiếp theo</strong>
-          <button type="button" onClick={() => setIsQueueOpen(false)} aria-label="Đóng danh sách">
-            Đóng
-          </button>
-        </div>
-
-        <div className="queue-list">
-          {nextSongs.length ? (
-            nextSongs.map(({ song, index }) => (
-              <button className="queue-row" type="button" key={`${song.id}-${index}`} onClick={() => onPlayIndex(index)}>
-                <span className="queue-cover">
-                  {song.cover ? <img src={song.cover} alt={song.title} /> : <MusicNotesSimple size={20} weight="fill" />}
-                </span>
-                <span className="queue-copy">
-                  <strong>{song.title}</strong>
-                  <small>{song.artist}</small>
-                </span>
-                <span>{song.duration}</span>
-              </button>
-            ))
-          ) : (
-            <p className="queue-empty">Chưa có bài tiếp theo.</p>
-          )}
-        </div>
-      </aside>
     </footer>
   )
 }

@@ -10,11 +10,13 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CardPlaylist from "../components/card_playlist.jsx";
+import LoadingState from "../components/loading_state.jsx";
 import {
-  availableSongs,
-  initialPlaylists,
+  buildPlaylists,
+  mapAvailableSongs,
   toneOptions,
 } from "../datas/playlistData.js";
+import { formatMinutes, localizePlaylist, useLanguage } from "../i18n.jsx";
 import "../styles/playlist.css";
 
 const initialForm = {
@@ -26,17 +28,6 @@ const initialForm = {
   songIds: [],
 };
 
-function formatDuration(totalMinutes) {
-  if (!totalMinutes) return "0 phút";
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (!hours) return `${minutes} phút`;
-  if (!minutes) return `${hours} giờ`;
-  return `${hours} giờ ${minutes} phút`;
-}
-
 function normalizeSearchText(value) {
   return value
     .toLowerCase()
@@ -45,17 +36,25 @@ function normalizeSearchText(value) {
     .replace(/đ/g, "d");
 }
 
-function Playlist() {
+function Playlist({ tracks = [], isLoading = false, error = "" }) {
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const [playlists, setPlaylists] = useState(initialPlaylists);
+  const [customPlaylists, setCustomPlaylists] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isToneMenuOpen, setIsToneMenuOpen] = useState(false);
   const [songSearch, setSongSearch] = useState("");
   const [form, setForm] = useState(initialForm);
 
+  const availableSongs = useMemo(() => mapAvailableSongs(tracks), [tracks]);
+  const defaultPlaylists = useMemo(() => buildPlaylists(tracks), [tracks]);
+  const playlists = useMemo(
+    () => [...customPlaylists, ...defaultPlaylists],
+    [customPlaylists, defaultPlaylists],
+  );
+
   const selectedSongs = useMemo(
     () => availableSongs.filter((song) => form.songIds.includes(song.id)),
-    [form.songIds],
+    [availableSongs, form.songIds],
   );
 
   const totalDuration = useMemo(
@@ -65,6 +64,8 @@ function Playlist() {
 
   const selectedTone =
     toneOptions.find((option) => option.value === form.tone) ?? toneOptions[0];
+  const selectedToneLabel = t(`playlistPage.tones.${selectedTone.value}`, {}, selectedTone.label);
+  const localizedPlaylists = playlists.map((playlist) => localizePlaylist(playlist, t));
 
   const filteredSongs = useMemo(() => {
     const keyword = normalizeSearchText(songSearch.trim());
@@ -76,7 +77,7 @@ function Playlist() {
 
       return searchableText.includes(keyword);
     });
-  }, [songSearch]);
+  }, [availableSongs, songSearch]);
 
   useEffect(() => {
     document.body.classList.toggle("playlist-dialog-active", isDialogOpen);
@@ -163,54 +164,77 @@ function Playlist() {
     const newPlaylist = {
       id: `playlist-${Date.now()}`,
       title: playlistName,
-      description: form.description.trim() || "Playlist cá nhân",
+      description: form.description.trim() || t("playlistPage.defaultDescription"),
       songCount: selectedSongs.length,
-      duration: formatDuration(totalDuration),
+      durationMinutes: totalDuration,
+      duration: formatMinutes(totalDuration, language),
       tone: form.tone,
       cover: form.cover,
     };
 
-    setPlaylists((currentPlaylists) => [newPlaylist, ...currentPlaylists]);
+    setCustomPlaylists((currentPlaylists) => [newPlaylist, ...currentPlaylists]);
     closeCreateDialog();
+  }
+
+  if (isLoading) {
+    return (
+      <section className="page-section playlist-page">
+        <LoadingState title={t("common.waitingTitle")} description={t("common.waitingMusicDescription")} quiet />
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="page-section playlist-page">
+        <LoadingState title={t("common.musicLoadErrorTitle")} description={error} variant="error" />
+      </section>
+    );
   }
 
   return (
     <section className="page-section playlist-page">
       {/* NOTE: Khu card playlist */}
-      <section className="playlist-panel" aria-label="Your playlist">
+      <section className="playlist-panel" aria-label={t("playlistPage.aria")}>
         <div className="playlist-panel-heading">
           <div>
-            <h2>Your Playlist</h2>
-            <p>Các playlist cá nhân, mix nhanh và bộ sưu tập đang lưu.</p>
+            <h2>{t("playlistPage.title")}</h2>
+            <p>{t("playlistPage.description")}</p>
           </div>
 
           <span className="playlist-panel-badge">
             <Sparkle size={17} weight="fill" />
-            {playlists.length} playlist
+            {playlists.length} {t("common.playlists")}
           </span>
         </div>
 
         <div className="playlist-grid">
           <CardPlaylist
-            title="Your playlist"
-            description="Tạo danh sách phát riêng"
+            title={t("playlistPage.createTitle")}
+            description={t("playlistPage.createDescription")}
             isCreate
             tone="blue"
             onClick={openCreateDialog}
           />
 
-          {playlists.map((playlist) => (
-            <CardPlaylist
-              key={playlist.id}
-              title={playlist.title}
-              description={playlist.description}
-              cover={playlist.cover}
-              songCount={playlist.songCount}
-              duration={playlist.duration}
-              tone={playlist.tone}
-              onClick={() => navigate(`/playlist/${playlist.id}`)}
-            />
-          ))}
+          {localizedPlaylists.map((playlist) => {
+            const playlistDuration = Number.isFinite(playlist.durationMinutes)
+              ? formatMinutes(playlist.durationMinutes, language)
+              : playlist.duration;
+
+            return (
+              <CardPlaylist
+                key={playlist.id}
+                title={playlist.title}
+                description={playlist.description}
+                cover={playlist.cover}
+                songCount={playlist.songCount}
+                duration={playlistDuration}
+                tone={playlist.tone}
+                onClick={() => navigate(`/playlist/${playlist.id}`)}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -225,13 +249,13 @@ function Playlist() {
           >
             <div className="playlist-dialog-heading">
               <div>
-                <h2 id="playlist-dialog-title">Tạo playlist mới</h2>
+                <h2 id="playlist-dialog-title">{t("playlistPage.newDialogTitle")}</h2>
               </div>
 
               <button
                 className="playlist-dialog-close"
                 type="button"
-                aria-label="Đóng"
+                aria-label={t("common.close")}
                 onClick={closeCreateDialog}
               >
                 <X size={22} weight="bold" />
@@ -250,29 +274,29 @@ function Playlist() {
 
                   <span className="playlist-cover-preview">
                     {form.cover ? (
-                      <img src={form.cover} alt="Ảnh bìa playlist" />
+                      <img src={form.cover} alt={t("playlistPage.coverAlt")} />
                     ) : (
                       <span className="playlist-cover-empty">
                         <Image size={32} weight="bold" />
-                        <span>Ảnh bìa</span>
+                        <span>{t("playlistPage.cover")}</span>
                       </span>
                     )}
                   </span>
 
                   <span className="playlist-cover-action">
                     <UploadSimple size={18} weight="bold" />
-                    {form.coverName || "Tải ảnh lên"}
+                    {form.coverName || t("playlistPage.uploadImage")}
                   </span>
                 </label>
 
                 {/* NOTE: Thông tin cơ bản của playlist */}
                 <div className="playlist-form-fields">
                   <label className="playlist-field">
-                    <span>Tên playlist</span>
+                    <span>{t("playlistPage.name")}</span>
                     <input
                       type="text"
                       value={form.name}
-                      placeholder="Ví dụ: Nhạc nghe buổi tối"
+                      placeholder={t("playlistPage.namePlaceholder")}
                       onChange={(event) =>
                         updateForm("name", event.target.value)
                       }
@@ -280,10 +304,10 @@ function Playlist() {
                   </label>
 
                   <label className="playlist-field">
-                    <span>Mô tả</span>
+                    <span>{t("playlistPage.descriptionLabel")}</span>
                     <textarea
                       value={form.description}
-                      placeholder="Mô tả ngắn để dễ nhớ playlist này dùng lúc nào."
+                      placeholder={t("playlistPage.descriptionPlaceholder")}
                       rows="4"
                       onChange={(event) =>
                         updateForm("description", event.target.value)
@@ -292,7 +316,7 @@ function Playlist() {
                   </label>
 
                   <div className="playlist-field">
-                    <span>Màu vibe</span>
+                    <span>{t("playlistPage.vibe")}</span>
 
                     {/* NOTE: Dropdown chọn màu vibe */}
                     <div
@@ -313,7 +337,7 @@ function Playlist() {
                         aria-expanded={isToneMenuOpen}
                         onClick={() => setIsToneMenuOpen((value) => !value)}
                       >
-                        <span>{selectedTone.label}</span>
+                        <span>{selectedToneLabel}</span>
                         <CaretDown size={18} weight="bold" />
                       </button>
 
@@ -321,7 +345,7 @@ function Playlist() {
                         <div
                           className="playlist-tone-menu"
                           role="listbox"
-                          aria-label="Màu vibe"
+                          aria-label={t("playlistPage.vibe")}
                         >
                           {toneOptions.map((option) => {
                             const isSelected = option.value === form.tone;
@@ -345,7 +369,7 @@ function Playlist() {
                                 <span
                                   className={`playlist-tone-dot playlist-tone-dot-${option.value}`}
                                 />
-                                <span>{option.label}</span>
+                                <span>{t(`playlistPage.tones.${option.value}`, {}, option.label)}</span>
                                 {isSelected ? (
                                   <Check size={16} weight="bold" />
                                 ) : null}
@@ -363,12 +387,15 @@ function Playlist() {
               <div className="playlist-song-picker">
                 <div className="playlist-song-picker-heading">
                   <div>
-                    <h3>Bài hát</h3>
-                    <p>Có thể bỏ qua hoặc tìm bài muốn thêm vào playlist.</p>
+                    <h3>{t("playlistPage.songsHeading")}</h3>
+                    <p>{t("playlistPage.songsDescription")}</p>
                   </div>
 
                   <span>
-                    {selectedSongs.length} bài - {formatDuration(totalDuration)}
+                    {t("playlistPage.selectedSummary", {
+                      count: selectedSongs.length,
+                      duration: formatMinutes(totalDuration, language),
+                    })}
                   </span>
                 </div>
 
@@ -378,7 +405,7 @@ function Playlist() {
                   <input
                     type="search"
                     value={songSearch}
-                    placeholder="Tìm bài hát hoặc nghệ sĩ"
+                    placeholder={t("playlistPage.songSearchPlaceholder")}
                     onChange={(event) => setSongSearch(event.target.value)}
                   />
                 </label>
@@ -407,14 +434,14 @@ function Playlist() {
                           <strong>{song.title}</strong>
                           <small>{song.artist}</small>
                         </span>
-                        <em>{song.minutes} phút</em>
+                        <em>{t("playlistPage.songMinute", { count: song.minutes })}</em>
                       </button>
                     );
                   })}
 
                   {filteredSongs.length === 0 ? (
                     <p className="playlist-song-empty">
-                      Không tìm thấy bài hát phù hợp.
+                      {t("playlistPage.noSongResults")}
                     </p>
                   ) : null}
                 </div>
@@ -426,10 +453,10 @@ function Playlist() {
                   type="button"
                   onClick={closeCreateDialog}
                 >
-                  Hủy
+                  {t("common.cancel")}
                 </button>
                 <button className="playlist-primary-button" type="submit">
-                  Lưu playlist
+                  {t("playlistPage.save")}
                 </button>
               </div>
             </form>

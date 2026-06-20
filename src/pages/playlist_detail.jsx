@@ -1,22 +1,47 @@
 import { ArrowLeft, MusicNotesSimple, Play, Sparkle } from '@phosphor-icons/react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { initialPlaylists, playlistTracks } from '../datas/playlistData.js'
+import LoadingState from '../components/loading_state.jsx'
+import { buildPlaylistTracks, buildPlaylists } from '../datas/playlistData.js'
+import { formatMinutes, localizePlaylist, useLanguage } from '../i18n.jsx'
 import '../styles/playlist_detail.css'
 
-function PlaylistDetail({ player }) {
+function PlaylistDetail({ player, tracks: allTracks = [], isLoading = false, error = '' }) {
+  const { language, t } = useLanguage()
   const { playlistId } = useParams()
-  const playlist = initialPlaylists.find((item) => item.id === playlistId)
+  const playlists = buildPlaylists(allTracks)
+  const tracksByPlaylist = buildPlaylistTracks(allTracks)
+  const basePlaylist = playlists.find((item) => item.id === playlistId)
 
-  if (!playlist) {
+  if (isLoading) {
+    return (
+      <section className="page-section playlist-detail-page">
+        <LoadingState title={t('common.waitingTitle')} description={t('common.waitingMusicDescription')} quiet />
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="page-section playlist-detail-page">
+        <LoadingState title={t('common.musicLoadErrorTitle')} description={error} variant="error" />
+      </section>
+    )
+  }
+
+  if (!basePlaylist) {
     return <Navigate to="/playlist" replace />
   }
 
-  const tracks = playlistTracks[playlist.id] ?? []
+  const playlist = localizePlaylist(basePlaylist, t)
+  const tracks = tracksByPlaylist[playlist.id] ?? []
+  const playlistDuration = Number.isFinite(playlist.durationMinutes)
+    ? formatMinutes(playlist.durationMinutes, language)
+    : playlist.duration
 
   return (
     <section className="page-section playlist-detail-page">
       <div className="playlist-detail-heading">
-        <Link className="playlist-detail-back" to="/playlist" aria-label="Quay lại Playlist">
+        <Link className="playlist-detail-back" to="/playlist" aria-label={t('playlistPage.detail.back')}>
           <ArrowLeft size={19} weight="bold" />
         </Link>
 
@@ -27,11 +52,11 @@ function PlaylistDetail({ player }) {
 
         <span className="playlist-detail-badge">
           <Sparkle size={17} weight="fill" />
-          {playlist.songCount} bài
+          {playlist.songCount} {t('common.songs')}
         </span>
       </div>
 
-      <section className="playlist-detail-panel" aria-label={`${playlist.title} tracks`}>
+      <section className="playlist-detail-panel" aria-label={t('playlistPage.detail.aria', { name: playlist.title })}>
         <aside className="playlist-detail-cover-card" data-tone={playlist.tone}>
           <div className="playlist-detail-cover">
             {playlist.cover ? (
@@ -43,7 +68,7 @@ function PlaylistDetail({ player }) {
             <button
               className="playlist-detail-play"
               type="button"
-              aria-label={`Phát ${playlist.title}`}
+              aria-label={t('playlistPage.detail.play', { name: playlist.title })}
               onClick={() => player?.playQueue(tracks, 0)}
             >
               <Play size={28} weight="fill" />
@@ -54,7 +79,10 @@ function PlaylistDetail({ player }) {
             <span>{playlist.title}</span>
             <strong>{playlist.description}</strong>
             <small>
-              {playlist.songCount} bài hát - {playlist.duration}
+              {t('playlistPage.detail.summary', {
+                count: playlist.songCount,
+                duration: playlistDuration,
+              })}
             </small>
           </div>
         </aside>

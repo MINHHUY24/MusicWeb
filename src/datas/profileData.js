@@ -1,5 +1,3 @@
-import { songLibrary } from "./songData.js";
-
 export const userProfile = {
   name: "Minh Huy",
   username: "@huy.music",
@@ -9,28 +7,32 @@ export const userProfile = {
 };
 
 export const profileStats = [
-  { id: "liked", label: "Yêu thích", value: songLibrary.length },
-  { id: "history", label: "Đã nghe", value: songLibrary.length },
+  { id: "liked", label: "Yêu thích", value: 0 },
+  { id: "history", label: "Đã nghe", value: 0 },
   { id: "uploaded", label: "Đã up", value: 0 },
 ];
 
-export const favoriteTracks = songLibrary.map((song) => ({
-  ...song,
-  id: song.id,
-  title: song.title,
-  artist: song.artist,
-  duration: song.duration,
-  cover: song.cover,
-  meta: song.categoryLabel,
-}));
+export function mapFavoriteTracks(tracks = []) {
+  return tracks.map((song) => ({
+    ...song,
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    duration: song.duration,
+    cover: song.cover,
+    meta: song.categoryLabel,
+  }));
+}
 
-export const listeningHistory = [...songLibrary].reverse().map((song, index) => ({
-  ...song,
-  id: `${song.id}-history`,
-  sourceId: song.id,
-  title: song.title,
-  artist: song.artist,
-  duration: song.duration,
-  cover: song.cover,
-  meta: index === 0 ? "Nghe gần đây" : "Trong thư viện",
-}));
+export function mapListeningHistory(tracks = []) {
+  return tracks.map((song, index) => ({
+    ...song,
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    duration: song.duration,
+    cover: song.cover,
+    audio: song.audio,
+    metaKey: index === 0 ? "profile.recentlyPlayed" : "profile.inLibrary",
+  }));
+}

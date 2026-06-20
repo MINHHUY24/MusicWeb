@@ -1,7 +1,5 @@
-import { getSongById, songLibrary } from "./songData.js";
-
-function sumMinutes(songIds) {
-  return songIds.reduce((total, songId) => total + (getSongById(songId)?.minutes ?? 0), 0);
+function sumMinutes(songs) {
+  return songs.reduce((total, song) => total + (song.minutes ?? 0), 0);
 }
 
 export function formatPlaylistDuration(totalMinutes) {
@@ -15,17 +13,7 @@ export function formatPlaylistDuration(totalMinutes) {
   return `${hours} giờ ${minutes} phút`;
 }
 
-export const playlistSongIds = {
-  "all-songs": songLibrary.map((song) => song.id),
-  "son-tung": songLibrary
-    .filter((song) => song.artist.toLowerCase().includes("sơn tùng"))
-    .map((song) => song.id),
-  "viet-mix": songLibrary
-    .filter((song) => ["vpop", "hiphop"].includes(song.category))
-    .map((song) => song.id),
-};
-
-export const initialPlaylists = [
+export const playlistDefinitions = [
   {
     id: "all-songs",
     title: "Tất cả bài hát",
@@ -44,34 +32,57 @@ export const initialPlaylists = [
     description: "V-pop và hip hop Việt",
     tone: "amber",
   },
-].map((playlist) => {
-  const songIds = playlistSongIds[playlist.id] ?? [];
-  const firstSong = getSongById(songIds[0]);
+];
 
-  return {
-    ...playlist,
-    songCount: songIds.length,
-    duration: formatPlaylistDuration(sumMinutes(songIds)),
-    cover: firstSong?.cover,
-  };
-});
+function getPlaylistTracks(playlistId, tracks) {
+  if (playlistId === "son-tung") {
+    return tracks.filter((song) => song.artist?.toLowerCase().includes("sơn tùng"));
+  }
 
-export const availableSongs = songLibrary.map((song) => ({
-  id: song.id,
-  title: song.title,
-  artist: song.artist,
-  minutes: song.minutes,
-  cover: song.cover,
-  audio: song.audio,
-  duration: song.duration,
-}));
+  if (playlistId === "viet-mix") {
+    return tracks.filter((song) => ["vpop", "hiphop"].includes(song.category));
+  }
 
-export const playlistTracks = Object.fromEntries(
-  initialPlaylists.map((playlist) => [
-    playlist.id,
-    (playlistSongIds[playlist.id] ?? []).map((songId) => getSongById(songId)).filter(Boolean),
-  ]),
-);
+  return tracks;
+}
+
+export function buildPlaylists(tracks = []) {
+  return playlistDefinitions
+    .map((playlist) => {
+      const playlistTracks = getPlaylistTracks(playlist.id, tracks);
+      const durationMinutes = sumMinutes(playlistTracks);
+
+      return {
+        ...playlist,
+        songCount: playlistTracks.length,
+        durationMinutes,
+        duration: formatPlaylistDuration(durationMinutes),
+        cover: playlistTracks.find((song) => song.cover)?.cover,
+      };
+    })
+    .filter((playlist) => playlist.songCount > 0);
+}
+
+export function buildPlaylistTracks(tracks = []) {
+  return Object.fromEntries(
+    buildPlaylists(tracks).map((playlist) => [
+      playlist.id,
+      getPlaylistTracks(playlist.id, tracks),
+    ]),
+  );
+}
+
+export function mapAvailableSongs(tracks = []) {
+  return tracks.map((song) => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    minutes: song.minutes,
+    cover: song.cover,
+    audio: song.audio,
+    duration: song.duration,
+  }));
+}
 
 export const toneOptions = [
   { value: "blue", label: "Blue glass" },

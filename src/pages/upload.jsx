@@ -1,13 +1,14 @@
 import {
   ArrowLeft,
   ArrowRight,
+  CaretDown,
+  Check,
   CheckCircle,
   CloudArrowUp,
-  Database,
   FileAudio,
   Image,
+  MagnifyingGlass,
   MusicNotesSimple,
-  Trash,
   UploadSimple,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -17,15 +18,12 @@ import {
   coverFileAccept,
   initialUploadForm,
   uploadCategories,
-  uploadSteps,
 } from "../datas/uploadData.js";
 import {
-  deleteStoredTrack,
-  getStoredTracks,
   isUploadStorageAvailable,
-  saveUploadedTrack,
   saveUploadedTrackToFiles,
 } from "../datas/uploadStorage.js";
+import { useLanguage } from "../i18n.jsx";
 import "../styles/upload.css";
 
 const audioExtensionPattern = /\.(wav|flac|aiff|aif|alac|mp3|m4a|ogg)$/i;
@@ -43,8 +41,8 @@ function formatBytes(bytes) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-function formatDuration(seconds) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "Chưa rõ";
+function formatDuration(seconds, t) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return t("common.unknown");
 
   const roundedSeconds = Math.round(seconds);
   const minutes = Math.floor(roundedSeconds / 60);
@@ -53,20 +51,15 @@ function formatDuration(seconds) {
   return `${minutes}:${remainingSeconds}`;
 }
 
-function formatCreatedAt(value) {
-  if (!value) return "";
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 function getTitleFromFile(file) {
   return file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ");
+}
+
+function normalizeSearchValue(value) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function readAudioDuration(file) {
@@ -87,25 +80,12 @@ function readAudioDuration(file) {
   });
 }
 
-function createStoredAssetUrls(track) {
-  const urls = {};
-
-  if (track.coverBlob) {
-    urls[`${track.id}-cover`] = URL.createObjectURL(track.coverBlob);
-  }
-
-  if (track.audioBlob) {
-    urls[`${track.id}-audio`] = URL.createObjectURL(track.audioBlob);
-  }
-
-  return urls;
-}
-
 function revokeAssetUrls(urls) {
   Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
 }
 
-function Upload() {
+function Upload({ auth }) {
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
@@ -113,24 +93,67 @@ function Upload() {
   const [audioPreview, setAudioPreview] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
   const [audioDuration, setAudioDuration] = useState(null);
-  const [storedTracks, setStoredTracks] = useState([]);
-  const [storedAssetUrls, setStoredAssetUrls] = useState({});
   const [lastSavedTrack, setLastSavedTrack] = useState(null);
   const [error, setError] = useState(() =>
     isUploadStorageAvailable()
       ? ""
-      : "Trình duyệt hiện không hỗ trợ nơi lưu upload local.",
+      : "upload.apiUnavailable",
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [availableUploadCategories, setAvailableUploadCategories] = useState(uploadCategories);
   const previewUrlsRef = useRef({ audio: "", cover: "" });
-  const storedAssetUrlsRef = useRef({});
+  const categoryPickerRef = useRef(null);
 
   const selectedCategory = useMemo(() => {
     return (
-      uploadCategories.find((category) => category.value === form.category) ??
+      availableUploadCategories.find((category) => category.value === form.category) ??
+      availableUploadCategories[0] ??
       uploadCategories[0]
     );
-  }, [form.category]);
+  }, [availableUploadCategories, form.category]);
+
+  const selectedCategoryLabel = t(
+    `categories.${selectedCategory?.value}.title`,
+    {},
+    selectedCategory?.label ?? "",
+  );
+
+  const localizedUploadSteps = useMemo(
+    () => [
+      {
+        id: "track-file",
+        label: t("upload.steps.file.label"),
+        description: t("upload.steps.file.description"),
+      },
+      {
+        id: "track-info",
+        label: t("upload.steps.info.label"),
+        description: t("upload.steps.info.description"),
+      },
+      {
+        id: "track-done",
+        label: t("upload.steps.done.label"),
+        description: t("upload.steps.done.description"),
+      },
+    ],
+    [t],
+  );
+
+  const filteredUploadCategories = useMemo(() => {
+    const searchValue = normalizeSearchValue(categorySearch.trim());
+
+    if (!searchValue) {
+      return availableUploadCategories;
+    }
+
+    return availableUploadCategories.filter((category) => {
+      const localizedLabel = t(`categories.${category.value}.title`, {}, category.label);
+
+      return normalizeSearchValue(`${localizedLabel} ${category.value}`).includes(searchValue);
+    });
+  }, [availableUploadCategories, categorySearch, t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -139,41 +162,82 @@ function Upload() {
       return undefined;
     }
 
-    getStoredTracks()
-      .then((tracks) => {
-        const urls = tracks.reduce(
-          (currentUrls, track) => ({
-            ...currentUrls,
-            ...createStoredAssetUrls(track),
-          }),
-          {},
-        );
+    fetch("/api/categories", {
+      headers: auth?.session?.access_token
+        ? { Authorization: `Bearer ${auth.session.access_token}` }
+        : {},
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("upload.cannotLoadCategories");
+        }
 
-        if (isMounted) {
-          storedAssetUrlsRef.current = urls;
-          setStoredAssetUrls(urls);
-          setStoredTracks(tracks);
-        } else {
-          revokeAssetUrls(urls);
+        return response.json();
+      })
+      .then((payload) => {
+        const categoriesFromServer = (payload.categories ?? []).map((category) => ({
+          value: category.id,
+          label: category.title,
+        }));
+
+        if (isMounted && categoriesFromServer.length) {
+          setAvailableUploadCategories(categoriesFromServer);
+          setForm((currentForm) => {
+            const hasCurrentCategory = categoriesFromServer.some(
+              (category) => category.value === currentForm.category,
+            );
+
+            return hasCurrentCategory
+              ? currentForm
+              : {
+                  ...currentForm,
+                  category: categoriesFromServer[0].value,
+                };
+          });
         }
       })
       .catch(() => {
         if (isMounted) {
-          setError("Không thể đọc thư viện upload local.");
+          setAvailableUploadCategories(uploadCategories);
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [auth?.session?.access_token]);
 
   useEffect(() => {
     return () => {
       revokeAssetUrls(previewUrlsRef.current);
-      revokeAssetUrls(storedAssetUrlsRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCategoryPickerOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (!categoryPickerRef.current?.contains(event.target)) {
+        setIsCategoryPickerOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsCategoryPickerOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isCategoryPickerOpen]);
 
   function updateForm(field, value) {
     setForm((currentForm) => ({
@@ -182,13 +246,19 @@ function Upload() {
     }));
   }
 
+  function selectCategory(categoryValue) {
+    updateForm("category", categoryValue);
+    setCategorySearch("");
+    setIsCategoryPickerOpen(false);
+  }
+
   async function handleAudioSelect(file) {
     if (!file) return;
 
     const isAudioFile = file.type.startsWith("audio/") || audioExtensionPattern.test(file.name);
 
     if (!isAudioFile) {
-      setError("Vui lòng chọn đúng file audio.");
+      setError("upload.invalidAudio");
       return;
     }
 
@@ -219,7 +289,7 @@ function Upload() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Vui lòng chọn đúng file hình ảnh.");
+      setError("upload.invalidImage");
       return;
     }
 
@@ -258,7 +328,7 @@ function Upload() {
 
   function goToInfoStep() {
     if (!audioFile) {
-      setError("Bạn cần chọn file nhạc trước khi tiếp tục.");
+      setError("upload.needAudioContinue");
       return;
     }
 
@@ -271,13 +341,13 @@ function Upload() {
     const artist = form.artist.trim();
 
     if (!audioFile) {
-      setError("Bạn cần chọn file nhạc trước khi lưu.");
+      setError("upload.needAudioSave");
       setCurrentStep(0);
       return;
     }
 
     if (!title || !artist) {
-      setError("Tên track và nghệ sĩ là bắt buộc.");
+      setError("upload.titleArtistRequired");
       return;
     }
 
@@ -285,11 +355,11 @@ function Upload() {
       id: `track-${Date.now()}`,
       title,
       artist,
-      category: selectedCategory.label,
+      category: selectedCategoryLabel,
       categoryValue: selectedCategory.value,
       description: form.description.trim(),
       durationSeconds: audioDuration,
-      durationLabel: formatDuration(audioDuration),
+      durationLabel: formatDuration(audioDuration, t),
       audioFileName: audioFile.name,
       audioFileType: audioFile.type || "audio",
       audioFileSize: audioFile.size,
@@ -304,55 +374,14 @@ function Upload() {
     setError("");
 
     try {
-      let sourceSaveFailed = false;
-
-      try {
-        await saveUploadedTrackToFiles(newTrack);
-      } catch {
-        sourceSaveFailed = true;
-      }
-
-      const savedTrack = await saveUploadedTrack(newTrack);
-      const savedUrls = createStoredAssetUrls(savedTrack);
-      const nextStoredUrls = {
-        ...savedUrls,
-        ...storedAssetUrlsRef.current,
-      };
-
-      storedAssetUrlsRef.current = nextStoredUrls;
-      setStoredAssetUrls(nextStoredUrls);
-      setStoredTracks((currentTracks) => [savedTrack, ...currentTracks]);
+      const savedTrack = await saveUploadedTrackToFiles(newTrack, auth?.session?.access_token);
       setLastSavedTrack(savedTrack);
       setCurrentStep(2);
-      setError(
-        sourceSaveFailed
-          ? "Dev API không khả dụng nên track chỉ được lưu local trong trình duyệt."
-          : "",
-      );
-    } catch {
-      setError("Không thể lưu track vào thư viện local.");
+      window.dispatchEvent(new CustomEvent("musicweb:tracks-updated"));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "upload.saveFailed");
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function removeStoredTrack(trackId) {
-    try {
-      await deleteStoredTrack(trackId);
-      const nextStoredUrls = { ...storedAssetUrlsRef.current };
-      const coverUrl = nextStoredUrls[`${trackId}-cover`];
-      const audioUrl = nextStoredUrls[`${trackId}-audio`];
-
-      if (coverUrl) URL.revokeObjectURL(coverUrl);
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-
-      delete nextStoredUrls[`${trackId}-cover`];
-      delete nextStoredUrls[`${trackId}-audio`];
-      storedAssetUrlsRef.current = nextStoredUrls;
-      setStoredAssetUrls(nextStoredUrls);
-      setStoredTracks((currentTracks) => currentTracks.filter((track) => track.id !== trackId));
-    } catch {
-      setError("Không thể xóa track khỏi thư viện local.");
     }
   }
 
@@ -367,28 +396,25 @@ function Upload() {
     setCoverPreview("");
     setAudioDuration(null);
     setLastSavedTrack(null);
+    setCategorySearch("");
+    setIsCategoryPickerOpen(false);
     setError("");
   }
 
   return (
     <section className="page-section upload-page">
-      {/* NOTE: Header trang Upload */}
-      <div className="upload-page-heading">
-        <div>
-          <h2>Upload nhạc</h2>
-          <p>Tải file, nhập thông tin và lưu vào source local khi chạy dev server.</p>
+      {/* NOTE: Wizard upload theo từng bước */}
+      <section className="upload-wizard" aria-label={t("upload.pageAria")}>
+        {/* NOTE: Header trang Upload nằm trong box để box cao đồng bộ sidebar */}
+        <div className="upload-page-heading">
+          <div>
+            <h2>{t("upload.title")}</h2>
+            <p>{t("upload.description")}</p>
+          </div>
         </div>
 
-        <span className="upload-storage-badge">
-          <Database size={17} weight="fill" />
-          {storedTracks.length} track local
-        </span>
-      </div>
-
-      {/* NOTE: Wizard upload theo từng bước */}
-      <section className="upload-wizard" aria-label="Upload track">
-        <div className="upload-stepper" aria-label="Upload steps">
-          {uploadSteps.map((step, index) => (
+        <div className="upload-stepper" aria-label={t("upload.stepsAria")}>
+          {localizedUploadSteps.map((step, index) => (
             <div
               key={step.id}
               className={[
@@ -411,7 +437,7 @@ function Upload() {
         {error ? (
           <div className="upload-error" role="alert">
             <WarningCircle size={20} weight="fill" />
-            <span>{error}</span>
+            <span>{t(error, {}, error)}</span>
           </div>
         ) : null}
 
@@ -419,9 +445,9 @@ function Upload() {
           // NOTE: Bước 1 - chọn file nhạc
           <div className="upload-stage upload-stage-file">
             <div className="upload-stage-copy">
-              <span className="upload-kicker">Track file</span>
-              <h3>Chọn file audio</h3>
-              <p>Hỗ trợ MP3, WAV, FLAC, AIFF, ALAC, M4A và OGG.</p>
+              <span className="upload-kicker">{t("upload.trackFile")}</span>
+              <h3>{t("upload.chooseAudio")}</h3>
+              <p>{t("upload.supportedAudio")}</p>
             </div>
 
             <label
@@ -441,11 +467,11 @@ function Upload() {
                   <CloudArrowUp size={58} weight="bold" />
                 )}
               </span>
-              <strong>{audioFile ? audioFile.name : "Kéo thả hoặc bấm để chọn file"}</strong>
+              <strong>{audioFile ? audioFile.name : t("upload.chooseDrop")}</strong>
               <small>
                 {audioFile
-                  ? `${formatBytes(audioFile.size)} - ${formatDuration(audioDuration)}`
-                  : "File sẽ được lưu vào src/datas/songs khi chạy dev server"}
+                  ? `${formatBytes(audioFile.size)} - ${formatDuration(audioDuration, t)}`
+                  : t("upload.storageHint")}
               </small>
             </label>
 
@@ -481,18 +507,18 @@ function Upload() {
                     onChange={(event) => handleCoverSelect(event.target.files?.[0])}
                   />
                   {coverPreview ? (
-                    <img src={coverPreview} alt="Ảnh bìa đang chọn" />
+                    <img src={coverPreview} alt={t("upload.coverAlt")} />
                   ) : (
                     <span className="upload-cover-empty">
                       <Image size={42} weight="bold" />
-                      <strong>Ảnh bìa</strong>
+                      <strong>{t("upload.cover")}</strong>
                     </span>
                   )}
                 </label>
 
                 <label className="upload-cover-button">
                   <UploadSimple size={18} weight="bold" />
-                  <span>{coverFile ? coverFile.name : "Tải ảnh lên"}</span>
+                  <span>{coverFile ? coverFile.name : t("upload.uploadImage")}</span>
                   <input
                     type="file"
                     accept={coverFileAccept}
@@ -504,44 +530,97 @@ function Upload() {
               {/* NOTE: Form thông tin track */}
               <div className="upload-form-fields">
                 <label className="upload-field">
-                  <span>Tên track</span>
+                  <span>{t("upload.trackName")}</span>
                   <input
                     type="text"
                     value={form.title}
-                    placeholder="Ví dụ: Nhạc nghe buổi tối"
+                    placeholder={t("upload.trackPlaceholder")}
                     onChange={(event) => updateForm("title", event.target.value)}
                   />
                 </label>
 
                 <label className="upload-field">
-                  <span>Nghệ sĩ</span>
+                  <span>{t("upload.artist")}</span>
                   <input
                     type="text"
                     value={form.artist}
-                    placeholder="Tên nghệ sĩ hoặc nhóm nhạc"
+                    placeholder={t("upload.artistPlaceholder")}
                     onChange={(event) => updateForm("artist", event.target.value)}
                   />
                 </label>
 
-                <label className="upload-field">
-                  <span>Thể loại</span>
-                  <select
-                    value={form.category}
-                    onChange={(event) => updateForm("category", event.target.value)}
+                <label className="upload-field upload-category-field">
+                  <span>{t("upload.category")}</span>
+                  <div
+                    className={[
+                      "upload-category-picker",
+                      isCategoryPickerOpen ? "upload-category-picker-open" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    ref={categoryPickerRef}
                   >
-                    {uploadCategories.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
+                    <button
+                      className="upload-category-trigger"
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded={isCategoryPickerOpen}
+                      onClick={() => setIsCategoryPickerOpen((isOpen) => !isOpen)}
+                    >
+                      <span>{selectedCategoryLabel}</span>
+                      <CaretDown size={18} weight="bold" />
+                    </button>
+
+                    {isCategoryPickerOpen ? (
+                      <div className="upload-category-menu">
+                        <label className="upload-category-search">
+                          <MagnifyingGlass size={17} weight="bold" />
+                          <input
+                            type="search"
+                            value={categorySearch}
+                            placeholder={t("upload.categorySearch")}
+                            autoFocus
+                            onChange={(event) => setCategorySearch(event.target.value)}
+                          />
+                        </label>
+
+                        <div className="upload-category-options" role="listbox">
+                          {filteredUploadCategories.length ? (
+                            filteredUploadCategories.map((category) => {
+                              const isSelected = category.value === form.category;
+
+                              return (
+                                <button
+                                  key={category.value}
+                                  className={
+                                    isSelected
+                                      ? "upload-category-option upload-category-option-selected"
+                                      : "upload-category-option"
+                                  }
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
+                                  onClick={() => selectCategory(category.value)}
+                                >
+                                  <span>{t(`categories.${category.value}.title`, {}, category.label)}</span>
+                                  {isSelected ? <Check size={17} weight="bold" /> : null}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <span className="upload-category-empty">{t("upload.noCategoryResults")}</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </label>
 
                 <label className="upload-field">
-                  <span>Mô tả</span>
+                  <span>{t("upload.descriptionLabel")}</span>
                   <textarea
                     value={form.description}
-                    placeholder="Ghi chú ngắn về track này."
+                    placeholder={t("upload.descriptionPlaceholder")}
                     onChange={(event) => updateForm("description", event.target.value)}
                   />
                 </label>
@@ -553,7 +632,7 @@ function Upload() {
               <div>
                 <strong>{audioFile?.name}</strong>
                 <span>
-                  {formatBytes(audioFile?.size)} - {formatDuration(audioDuration)}
+                  {formatBytes(audioFile?.size)} - {formatDuration(audioDuration, t)}
                 </span>
               </div>
             </div>
@@ -564,8 +643,8 @@ function Upload() {
           // NOTE: Bước 3 - trạng thái lưu thành công
           <div className="upload-stage upload-stage-done">
             <CheckCircle size={88} weight="fill" />
-            <h3>Đã lưu track</h3>
-            <p>Track đã được lưu và có thể xem lại ở danh sách bên dưới.</p>
+            <h3>{t("upload.savedTitle")}</h3>
+            <p>{t("upload.savedDescription")}</p>
 
             {lastSavedTrack ? (
               <div className="upload-success-card">
@@ -580,7 +659,11 @@ function Upload() {
                   <strong>{lastSavedTrack.title}</strong>
                   <span>{lastSavedTrack.artist}</span>
                   <small>
-                    {lastSavedTrack.category} - {lastSavedTrack.durationLabel}
+                    {t(
+                      `categories.${lastSavedTrack.categoryValue}.title`,
+                      {},
+                      lastSavedTrack.categoryLabel || lastSavedTrack.category,
+                    )} - {formatDuration(lastSavedTrack.durationSeconds, t)}
                   </small>
                 </div>
               </div>
@@ -595,13 +678,13 @@ function Upload() {
           ) : (
             <button className="upload-secondary-button" type="button" onClick={goBack}>
               <ArrowLeft size={18} weight="bold" />
-              Quay lại
+              {t("common.back")}
             </button>
           )}
 
           {currentStep === 0 ? (
             <button className="upload-primary-button" type="button" onClick={goToInfoStep}>
-              Tiếp tục
+              {t("common.continue")}
               <ArrowRight size={18} weight="bold" />
             </button>
           ) : null}
@@ -613,73 +696,18 @@ function Upload() {
               disabled={isSaving}
               onClick={saveTrack}
             >
-              {isSaving ? "Đang lưu" : "Lưu track"}
+              {isSaving ? t("upload.saving") : t("upload.saveTrack")}
               <CheckCircle size={18} weight="bold" />
             </button>
           ) : null}
 
           {currentStep === 2 ? (
             <button className="upload-primary-button" type="button" onClick={resetUpload}>
-              Upload bài mới
+              {t("upload.uploadNew")}
               <CloudArrowUp size={18} weight="bold" />
             </button>
           ) : null}
         </div>
-      </section>
-
-      {/* NOTE: Thư viện upload local */}
-      <section className="upload-library" aria-label="Local uploaded tracks">
-        <div className="upload-library-heading">
-          <div>
-            <h2>Thư viện local</h2>
-            <p>Khi chạy dev server, audio lưu vào src/datas/songs và cover lưu vào src/assets/image_song.</p>
-          </div>
-        </div>
-
-        {storedTracks.length ? (
-          <div className="upload-library-grid">
-            {storedTracks.map((track) => (
-              <article className="upload-library-card" key={track.id}>
-                <div className="upload-library-cover">
-                  {storedAssetUrls[`${track.id}-cover`] ? (
-                    <img src={storedAssetUrls[`${track.id}-cover`]} alt={track.title} />
-                  ) : (
-                    <MusicNotesSimple size={28} weight="fill" />
-                  )}
-                </div>
-
-                <div className="upload-library-content">
-                  <strong>{track.title}</strong>
-                  <span>{track.artist}</span>
-                  <small>
-                    {track.category} - {track.durationLabel}
-                  </small>
-                  <small>{formatCreatedAt(track.createdAt)}</small>
-                </div>
-
-                <div className="upload-library-actions">
-                  {storedAssetUrls[`${track.id}-audio`] ? (
-                    <audio src={storedAssetUrls[`${track.id}-audio`]} controls />
-                  ) : null}
-
-                  <button
-                    type="button"
-                    aria-label={`Xóa ${track.title}`}
-                    onClick={() => removeStoredTrack(track.id)}
-                  >
-                    <Trash size={18} weight="bold" />
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="upload-library-empty">
-            <MusicNotesSimple size={42} weight="fill" />
-            <strong>Chưa có track nào</strong>
-            <span>Upload một file nhạc để bắt đầu tạo thư viện cá nhân.</span>
-          </div>
-        )}
       </section>
     </section>
   );

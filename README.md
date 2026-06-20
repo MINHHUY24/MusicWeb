@@ -1,162 +1,68 @@
 # MusicWeb
 
-> MusicWeb là web app nghe nhạc cá nhân được xây dựng bằng React và Vite, cho phép người dùng duyệt bài hát, phát nhạc, quản lý playlist, xem thể loại, upload track local và theo dõi thư viện cá nhân.
+MusicWeb là web app nghe nhạc cá nhân dùng React, Vite, Node.js backend và Supabase. Ứng dụng hỗ trợ đăng nhập Google, upload audio/cover lên Supabase Storage, lưu metadata track trong Supabase Database, duyệt nhạc theo trang chủ/thể loại/danh sách phát và phát nhạc bằng player chung.
 
-![React](https://img.shields.io/badge/React-19+-blue.svg) ![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg) ![React Router](https://img.shields.io/badge/React%20Router-7-red.svg) ![IndexedDB](https://img.shields.io/badge/IndexedDB-Local%20Storage-2F80ED.svg) ![CSS](https://img.shields.io/badge/CSS-Custom-1572B6.svg)
+![React](https://img.shields.io/badge/React-19-blue.svg) ![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg) ![Node.js](https://img.shields.io/badge/Node.js-API-339933.svg) ![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB%20%2B%20Storage-3ECF8E.svg)
 
----
+## Tính Năng
 
-## Giới thiệu
+- Đăng nhập Google qua Supabase Auth.
+- Topbar tìm kiếm bài hát/nghệ sĩ, đổi ngôn ngữ Việt/Anh và quản lý tài khoản.
+- Home hiển thị các lane nhạc lấy từ Supabase.
+- Thể loại đọc từ bảng `categories`, tự tính số bài và ảnh bìa theo track.
+- Danh sách phát mặc định gồm tất cả bài hát, Sơn Tùng M-TP và Việt mix.
+- Tạo danh sách phát tạm trong phiên hiện tại.
+- Upload audio và ảnh bìa qua Node API vào Supabase Storage.
+- Player cố định dưới màn hình với play/pause, next/previous, shuffle, repeat, seek, volume mặc định 100%.
+- Popup "Phát tiếp theo" cho phép chọn bài tiếp theo trong queue.
+- Tim bài đang phát để đưa vào Yêu thích.
+- Lịch sử chỉ ghi bài đã phát thật, bài gần đây nằm trước.
+- Profile hiển thị Yêu thích, Lịch sử, Nhạc đã up và hỗ trợ xóa track đã upload.
+- Responsive sidebar có thể thu gọn/mở rộng.
 
-**MusicWeb** là một ứng dụng nghe nhạc trên trình duyệt với giao diện dạng music dashboard. Dự án tập trung vào trải nghiệm duyệt nhạc nhanh, phát nhạc trực tiếp, chia bài hát theo playlist/thể loại và hỗ trợ upload nhạc từ máy người dùng.
-
-Ứng dụng có thanh điều hướng bên trái, topbar tìm kiếm, khu nội dung thay đổi theo route và thanh phát nhạc cố định ở cuối màn hình. Người dùng có thể bấm vào bài hát ở Home, Category, Playlist hoặc Profile để phát ngay bằng player chung của toàn app.
-
-## Mục tiêu của dự án
-
-Dự án này được phát triển với mục tiêu:
-
-- Xây dựng giao diện nghe nhạc hiện đại bằng React
-- Thực hành routing với React Router
-- Quản lý trạng thái player ở cấp ứng dụng
-- Tổ chức dữ liệu bài hát, playlist, category và profile theo module riêng
-- Hỗ trợ phát audio, tua bài, chỉnh âm lượng, shuffle, repeat và xem hàng chờ
-- Xây dựng tính năng upload nhạc local bằng IndexedDB và Vite middleware
-- Tạo nền tảng có thể mở rộng thêm đăng nhập, backend hoặc database thật trong tương lai
-
-## Tính năng chính
-
-### Trang Home
-
-- Hiển thị các lane nhạc dạng cuộn ngang
-- Có các nhóm: Trending Music, Chill và Mới phát hành
-- Sắp xếp Trending theo số lượt click trong phiên sử dụng
-- Bấm vào card nhạc để phát bài hát
-- Tự nhận diện khi lane cần nút "Xem thêm" hoặc "Thu gọn"
-
-### Music Player
-
-- Thanh phát nhạc cố định ở cuối màn hình
-- Hiển thị ảnh bìa, tên bài hát và nghệ sĩ đang phát
-- Phát/tạm dừng bài hát
-- Chuyển bài trước/sau
-- Tua bài bằng timeline
-- Chỉnh âm lượng
-- Bật/tắt shuffle
-- Chuyển chế độ repeat: off, one, all
-- Mở danh sách bài tiếp theo và chọn bài trong queue
-
-### Trang Category
-
-- Hiển thị danh sách thể loại nhạc hiện có trong thư viện
-- Tự tính số bài hát theo từng thể loại
-- Tự lấy ảnh bìa từ bài hát đầu tiên trong thể loại
-- Vào trang chi tiết thể loại để xem danh sách track
-- Phát toàn bộ thể loại hoặc phát từng bài riêng lẻ
-
-### Trang Playlist
-
-- Hiển thị các playlist mặc định như Tất cả bài hát, Sơn Tùng M-TP và Việt mix
-- Tạo playlist mới bằng dialog
-- Upload ảnh bìa playlist
-- Chọn tone màu cho playlist
-- Tìm kiếm bài hát trong form tạo playlist
-- Chọn nhiều bài hát để đưa vào playlist
-- Tự tính số bài và thời lượng playlist
-
-> Lưu ý: playlist tạo mới đang được lưu trong state của phiên chạy hiện tại. Khi reload trang, dữ liệu playlist mới sẽ quay về mặc định.
-
-### Trang Playlist Detail
-
-- Hiển thị thông tin playlist, ảnh bìa, mô tả, số bài và thời lượng
-- Phát toàn bộ playlist từ bài đầu tiên
-- Hiển thị danh sách track trong playlist
-- Bấm từng track để phát từ vị trí được chọn
-
-### Trang Upload
-
-- Upload file audio từ máy người dùng
-- Hỗ trợ MP3, WAV, FLAC, AIFF, AIF, ALAC, M4A và OGG
-- Upload ảnh bìa cho track
-- Nhập tên track, nghệ sĩ, thể loại và mô tả
-- Đọc duration của file audio trước khi lưu
-- Lưu track vào IndexedDB của trình duyệt
-- Khi chạy dev server, Vite middleware lưu thêm file vào:
-  - `src/datas/songs`
-  - `src/assets/image_song`
-  - `src/datas/uploadedSongs.json`
-- Hiển thị thư viện upload local
-- Nghe thử hoặc xóa track đã upload
-
-### Trang Profile
-
-- Hiển thị thông tin người dùng mẫu
-- Thống kê số bài yêu thích, lịch sử nghe và bài đã upload
-- Chia nhạc thành 3 tab:
-  - Yêu thích
-  - Lịch sử
-  - Nhạc đã up
-- Danh sách Nhạc đã up tự đọc từ IndexedDB
-- Có empty state dẫn sang trang Upload khi chưa có track upload
-
-### Điều hướng và responsive
-
-- Sidebar có thể thu gọn/mở rộng
-- Sidebar tự chuyển sang chế độ compact trên màn hình nhỏ
-- Route không tồn tại sẽ tự chuyển về Home
-- Các trang chính được quản lý bằng React Router
-
-## Công nghệ sử dụng
-
-### Frontend
+## Công Nghệ
 
 - React 19
 - Vite 8
 - React Router DOM 7
+- Supabase JS
+- Node.js HTTP server
+- Supabase Auth, REST API và Storage
 - CSS thuần
 - Phosphor Icons
-- Lucide React
-
-### Local storage & upload
-
-- IndexedDB để lưu track upload trong trình duyệt
-- Vite dev server middleware để nhận upload qua `/api/upload-track`
-- File API, Blob URL và FormData để preview/lưu file
-
-### Tooling
-
-- npm
 - ESLint
-- Vite build/preview
 
-## Cấu trúc dự án
+## Cấu Trúc
 
 ```text
 MusicWeb/
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
+├── server/
+│   └── index.js
 ├── src/
 │   ├── assets/
-│   │   ├── hero.png
-│   │   └── image_song/
+│   │   └── hero.png
 │   ├── components/
+│   │   ├── auth_gate.jsx
 │   │   ├── card_category.jsx
 │   │   ├── card_music.jsx
 │   │   ├── card_playlist.jsx
 │   │   ├── footer.jsx
+│   │   ├── loading_state.jsx
+│   │   ├── login_card.jsx
 │   │   ├── sidebar.jsx
-│   │   └── topbar.jsx
+│   │   ├── topbar.jsx
+│   │   └── user_avatar.jsx
 │   ├── datas/
-│   │   ├── songs/
 │   │   ├── categoryData.js
-│   │   ├── homeData.js
 │   │   ├── playlistData.js
 │   │   ├── profileData.js
-│   │   ├── songData.js
 │   │   ├── uploadData.js
-│   │   ├── uploadedSongs.json
 │   │   └── uploadStorage.js
+│   ├── lib/
+│   │   └── supabaseClient.js
 │   ├── pages/
 │   │   ├── category.jsx
 │   │   ├── category_detail.jsx
@@ -168,249 +74,265 @@ MusicWeb/
 │   ├── styles/
 │   ├── App.css
 │   ├── App.jsx
+│   ├── i18n.jsx
 │   ├── index.css
 │   └── main.jsx
-├── eslint.config.js
-├── index.html
-├── package.json
-├── package-lock.json
+├── .env.example
+├── supabase-auth-setup.sql
 ├── vite.config.js
+├── package.json
 └── README.md
 ```
 
-## Cách sử dụng ứng dụng
+## Routes
 
-### 1. Nghe nhạc ở Home
+| Route                   | Chức năng                             |
+| ----------------------- | ------------------------------------- |
+| `/`                     | Trang chủ, các lane nhạc              |
+| `/category`             | Danh sách thể loại                    |
+| `/category/:categoryId` | Chi tiết thể loại                     |
+| `/playlist`             | Danh sách phát                        |
+| `/playlist/:playlistId` | Chi tiết danh sách phát               |
+| `/upload`               | Upload nhạc                           |
+| `/profile`              | Hồ sơ, yêu thích, lịch sử, nhạc đã up |
 
-Vào trang Home, chọn một bài trong các lane nhạc. Player ở cuối màn hình sẽ bắt đầu phát bài được chọn và giữ queue theo lane hiện tại.
+Các route `/category`, `/playlist`, `/profile`, `/upload` và route chi tiết cần đăng nhập.
 
-### 2. Duyệt theo thể loại
+## Cài Đặt
 
-Vào Category, chọn một thể loại nhạc, sau đó bấm nút play để phát toàn bộ danh sách hoặc chọn từng bài trong danh sách.
-
-### 3. Duyệt theo playlist
-
-Vào Playlist để xem các playlist có sẵn. Chọn một playlist để vào trang chi tiết và phát danh sách nhạc tương ứng.
-
-### 4. Tạo playlist mới
-
-Ở trang Playlist, bấm card "Your playlist", nhập tên playlist, mô tả, chọn tone, upload ảnh bìa nếu cần và chọn bài hát muốn thêm vào playlist.
-
-### 5. Upload nhạc
-
-Ở trang Upload:
-
-1. Chọn file audio.
-2. Bấm Tiếp tục.
-3. Nhập tên track, nghệ sĩ, thể loại, mô tả và ảnh bìa nếu có.
-4. Bấm Lưu track.
-5. Track sẽ xuất hiện trong Thư viện local và tab Nhạc đã up ở Profile.
-
-### 6. Quản lý nhạc cá nhân
-
-Vào Profile để xem bài yêu thích, lịch sử nghe và danh sách nhạc đã upload. Bấm vào một bài bất kỳ để phát bằng player chung.
-
-## Cài đặt và chạy project
-
-### Yêu cầu
-
-Trước khi chạy project, cần cài:
+### Yêu Cầu
 
 - Node.js 18+
 - npm
-- Git
+- Supabase project
+- Google OAuth đã bật trong Supabase Auth nếu muốn đăng nhập Google
 
-### 1. Clone repository
-
-```bash
-git clone <repository-url>
-cd MusicWeb
-```
-
-### 2. Cài dependencies
+### 1. Cài dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Chạy project ở môi trường development
+### 2. Tạo file môi trường
+
+Copy `.env.example` thành `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Điền các biến:
+
+```env
+PORT=3001
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-public-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_AUDIO_BUCKET=track-audio
+SUPABASE_COVER_BUCKET=track-covers
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` chỉ chạy trong Node backend. Không import key này vào frontend.
+
+### 3. Chuẩn bị Supabase Storage
+
+Tạo 2 bucket:
+
+- `track-audio`
+- `track-covers`
+
+Backend đang tạo public URL bằng `/storage/v1/object/public/...`, vì vậy bucket cần public hoặc cần policy đọc public tương ứng.
+
+### 4. Chuẩn bị Supabase Database
+
+Ứng dụng đọc bảng `categories` và `tracks`.
+
+Schema khuyến nghị:
+
+```sql
+create table if not exists public.categories (
+  id text primary key,
+  name text not null,
+  description text,
+  tone text default 'blue',
+  sort_order int default 0,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.tracks (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  artist text not null,
+  category_id text references public.categories(id),
+  description text,
+  duration_seconds int,
+  duration_label text,
+  audio_path text,
+  cover_path text,
+  audio_file_name text,
+  audio_file_size int,
+  cover_file_name text,
+  cover_file_size int,
+  status text default 'published',
+  user_id uuid references auth.users(id) on delete cascade,
+  clicks int default 0,
+  created_at timestamptz default now()
+);
+
+create index if not exists tracks_user_id_created_at_idx
+  on public.tracks (user_id, created_at desc);
+
+create index if not exists tracks_user_id_status_idx
+  on public.tracks (user_id, status);
+```
+
+Repo cũng có `supabase-auth-setup.sql` để thêm riêng cột/index `user_id` nếu bảng `tracks` đã tồn tại. Backend có fallback cho schema cũ chưa có `user_id`, `status`, `created_at` hoặc relationship embed `categories`, nhưng schema trên là cấu hình nên dùng.
+
+### 5. Seed thể loại
+
+Bạn có thể seed các category theo `src/datas/categoryData.js`. Cột cần quan tâm là:
+
+- `id`
+- `name`
+- `description`
+- `tone`
+- `sort_order`
+- `is_active`
+
+## Chạy Development
+
+Mở terminal 1 chạy backend:
+
+```bash
+npm run dev:api
+```
+
+Mở terminal 2 chạy frontend:
 
 ```bash
 npm run dev
 ```
 
-Thông thường Vite sẽ chạy tại:
+Vite mặc định chạy ở:
 
 ```text
 http://localhost:5173
 ```
 
-Nếu port 5173 đang bận, Vite có thể tự chuyển sang port khác.
-
-### 4. Build production
-
-```bash
-npm run build
-```
-
-### 5. Xem bản production build
-
-```bash
-npm run preview
-```
-
-### 6. Kiểm tra lint
-
-```bash
-npm run lint
-```
+Frontend gọi `/api/*` qua proxy trong `vite.config.js` tới backend `http://127.0.0.1:3001`.
 
 ## Scripts
 
-| Lệnh              | Chức năng                    |
-| ----------------- | ---------------------------- |
-| `npm run dev`     | Chạy Vite dev server         |
-| `npm run build`   | Build project cho production |
-| `npm run preview` | Preview bản build production |
-| `npm run lint`    | Kiểm tra code bằng ESLint    |
+| Lệnh              | Chức năng                        |
+| ----------------- | -------------------------------- |
+| `npm run dev`     | Chạy Vite dev server             |
+| `npm run dev:api` | Chạy Node API server bằng `.env` |
+| `npm run build`   | Build production                 |
+| `npm run preview` | Preview production build         |
+| `npm run lint`    | Kiểm tra ESLint                  |
 
-## Dữ liệu nhạc
+## Backend API
 
-Dữ liệu bài hát được quản lý trong `src/datas/songData.js`.
+Node server nằm tại `server/index.js`.
 
-Các bài hát gốc được import từ:
+| Method | Endpoint | Chức năng |
+| --- | --- | --- |
+| `GET` | `/api/health` | Kiểm tra API sống |
+| `GET` | `/api/auth/config` | Trả `SUPABASE_URL` và `SUPABASE_ANON_KEY` cho frontend |
+| `GET` | `/api/categories` | Lấy thể loại active và số bài theo thể loại |
+| `GET` | `/api/tracks` | Lấy track published |
+| `POST` | `/api/tracks` | Upload audio/cover và insert metadata track |
+| `DELETE` | `/api/tracks/:id` | Xóa metadata và object trong Storage |
 
-- `src/assets/image_song`
-- `src/datas/songs`
+Các endpoint nhạc cần `Authorization: Bearer <supabase-access-token>`.
 
-Các bài hát upload bằng dev server được ghi vào:
+## Luồng Dữ Liệu
 
-- `src/datas/uploadedSongs.json`
+1. Frontend gọi `/api/auth/config` để khởi tạo Supabase client.
+2. Người dùng đăng nhập Google qua Supabase Auth.
+3. Frontend gọi `/api/tracks` và `/api/categories` kèm access token.
+4. Backend xác thực token qua Supabase Auth.
+5. Backend dùng service role key để đọc/ghi Database và Storage.
+6. Home, Category, Playlist, Profile nhận dữ liệu track/category từ API.
+7. Khi upload/xóa thành công, frontend dispatch event `musicweb:tracks-updated` để reload thư viện.
 
-Sau đó `songLibrary` sẽ gộp:
+## Ghi Chú Về State
 
-```js
-export const songLibrary = [...baseSongs, ...normalizedUploadedSongs];
+- Yêu thích lưu trong `localStorage` bằng key `musicweb:favorite-track-ids`.
+- Lịch sử nghe lưu trong `localStorage` bằng key `musicweb:listening-history-track-ids`.
+- Danh sách phát tạo mới hiện chỉ lưu trong React state của phiên chạy hiện tại.
+- Track/audio/cover upload được lưu thật trong Supabase.
+- Source không còn dùng file audio demo local trong `src/datas/songs`.
+
+## Kiểm Tra
+
+```bash
+npm run lint
+npm run build
 ```
 
-Các module như Home, Category, Playlist và Profile đều đọc dữ liệu từ `songLibrary`, nên bài upload mới có thể xuất hiện trong các khu vực tương ứng sau khi dữ liệu được cập nhật.
+Nếu muốn kiểm tra cú pháp backend:
 
-## Upload local hoạt động như thế nào?
-
-MusicWeb dùng 2 lớp lưu trữ:
-
-### 1. IndexedDB
-
-Track upload được lưu vào IndexedDB với database:
-
-```text
-musicweb-local-datas
+```bash
+node --check server/index.js
 ```
 
-Object store:
+## Lỗi Thường Gặp
 
-```text
-uploadedTracks
-```
+### Home hoặc Thể loại không hiện nhạc
 
-Cách này giúp track vẫn còn trong trình duyệt sau khi reload trang.
+- Kiểm tra backend đã chạy `npm run dev:api`.
+- Kiểm tra đã đăng nhập Google.
+- Kiểm tra bảng `tracks` có dữ liệu.
+- Kiểm tra `/api/tracks` trả JSON hợp lệ.
+- Kiểm tra terminal backend để xem lỗi Supabase.
 
-### 2. Vite middleware
+### Lỗi `column tracks.user_id does not exist`
 
-Khi chạy `npm run dev`, `vite.config.js` đăng ký endpoint:
+Chạy SQL trong `supabase-auth-setup.sql`, hoặc dùng schema khuyến nghị ở phần Database. Backend có fallback cho trường hợp thiếu `user_id`, nhưng nên thêm cột này nếu muốn dữ liệu tách theo user.
 
-```text
-POST /api/upload-track
-```
+### Upload thành công nhưng ảnh/audio không phát
 
-Endpoint này nhận FormData, lưu audio/cover vào source local và cập nhật `uploadedSongs.json`. Đây là tính năng dành cho môi trường development.
+- Kiểm tra bucket `track-audio` và `track-covers`.
+- Kiểm tra bucket/policy cho phép đọc public nếu dùng public URL.
+- Kiểm tra `audio_path` và `cover_path` trong bảng `tracks`.
 
-## Các route chính
+### Không đăng nhập được Google
 
-| Route                   | Trang                 |
-| ----------------------- | --------------------- |
-| `/`                     | Home                  |
-| `/playlist`             | Danh sách playlist    |
-| `/playlist/:playlistId` | Chi tiết playlist     |
-| `/category`             | Danh sách thể loại    |
-| `/category/:categoryId` | Chi tiết thể loại     |
-| `/upload`               | Upload nhạc           |
-| `/profile`              | Hồ sơ và nhạc cá nhân |
+- Kiểm tra `SUPABASE_URL` và `SUPABASE_ANON_KEY`.
+- Bật Google provider trong Supabase Auth.
+- Thêm redirect URL của local app, ví dụ `http://localhost:5173`.
 
-## Nếu gặp lỗi
+### Port bị chiếm
 
-### 1. Không phát được nhạc
-
-Kiểm tra:
-
-- File audio có tồn tại trong `src/datas/songs` không
-- Đường dẫn import trong `songData.js` có đúng không
-- Trình duyệt có chặn autoplay không
-- Bạn đã bấm nút play hoặc chọn bài hát chưa
-
-### 2. Upload không lưu vào source file
-
-Kiểm tra:
-
-- Project đang chạy bằng `npm run dev`
-- Endpoint `/api/upload-track` trong `vite.config.js` còn được đăng ký
-- File audio đúng định dạng được hỗ trợ
-- Terminal dev server có báo lỗi ghi file không
-
-Nếu dev API lỗi, app vẫn có thể lưu track trong IndexedDB của trình duyệt.
-
-### 3. Nhạc upload không hiện sau khi reload
-
-Kiểm tra:
-
-- Trình duyệt có hỗ trợ IndexedDB không
-- Bạn có đang dùng chế độ ẩn danh không
-- DevTools Application > IndexedDB có database `musicweb-local-datas` không
-- File `src/datas/uploadedSongs.json` có được cập nhật không nếu muốn lưu vào source
-
-### 4. Playlist tạo mới bị mất sau reload
-
-Đây là hành vi hiện tại của project. Playlist tạo mới đang lưu bằng React state, chưa lưu vào IndexedDB hoặc backend.
-
-### 5. Lỗi port đang được dùng
-
-Nếu port 5173 bị chiếm, có thể chạy:
+Đổi port frontend:
 
 ```bash
 npm run dev -- --port 5174
 ```
 
-### 6. Lỗi dependency
+Đổi port backend trong `.env`:
 
-Thử cài lại dependencies:
-
-```bash
-rm -rf node_modules package-lock.json
-npm install
+```env
+PORT=3002
 ```
 
-## Hướng phát triển tiếp
+Nếu đổi backend port, cần cập nhật proxy trong `vite.config.js`.
 
-- Lưu playlist tạo mới vào IndexedDB
-- Đồng bộ playlist và upload với backend thật
-- Thêm đăng nhập người dùng
-- Thêm chức năng tìm kiếm bài hát thật trong Topbar
-- Thêm favorite/unfavorite cho từng track
-- Thêm trang artist detail
-- Thêm dark/light theme
-- Thêm kéo thả sắp xếp queue hoặc playlist
+## Hướng Phát Triển
 
-## Ghi chú
-
-Project hiện là frontend app chạy bằng Vite. Dữ liệu người dùng và upload chủ yếu được lưu local, phù hợp cho học tập, demo UI và phát triển prototype nghe nhạc cá nhân.
+- Lưu danh sách phát tự tạo vào Supabase.
+- Thêm bảng favorites/history server-side thay vì localStorage.
+- Thêm artist detail.
+- Thêm quản trị category/track.
+- Thêm kéo thả sắp xếp queue/danh sách phát.
+- Tối ưu code splitting để giảm cảnh báo chunk size khi build.
 
 ## Liên hệ
 
-- **GitHub:** https://github.com/MINHHUY24
-- **Email:** huyleminh93vvk@gmail.com
-
-Bạn có thể tạo issue trong GitHub repository nếu gặp lỗi hoặc muốn góp ý tính năng.
+GitHub: https://github.com/MINHHUY24 Email: huyleminh93vvk@gmail.com Bạn có thể tạo issue trong GitHub repository nếu gặp lỗi hoặc muốn góp ý tính năng.
 
 ## License
 
-Dự án này được phát triển cho mục đích học tập và thực hành cá nhân.
+Dự án phục vụ học tập và thực hành cá nhân.
