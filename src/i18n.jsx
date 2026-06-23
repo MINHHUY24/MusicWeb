@@ -311,6 +311,11 @@ const translations = {
       recentlyPlayed: "Nghe gần đây",
       inLibrary: "Trong thư viện",
       deleteTrack: "Xóa {title}",
+      editTrack: "Sửa {title}",
+      editTrackTitle: "Chỉnh sửa bài hát này?",
+      editTrackConfirm:
+        'Bạn sẽ được chuyển tới trang Upload để cập nhật thông tin của "{title}".',
+      editTrackAction: "Đi tới chỉnh sửa",
       deleteTrackTitle: "Xóa bài hát này?",
       deleteTrackConfirm:
         'Bài "{title}" sẽ bị xóa khỏi Supabase và không còn xuất hiện trong thư viện.',
@@ -321,8 +326,11 @@ const translations = {
     upload: {
       pageAria: "Upload track",
       title: "Upload nhạc",
+      editTitle: "Chỉnh sửa nhạc",
       description:
         "Tải file, nhập thông tin và lưu qua Node.js backend vào Supabase.",
+      editDescription:
+        "Cập nhật thông tin bài hát đã upload. Bạn có thể giữ file hiện tại hoặc chọn file mới.",
       stepsAria: "Các bước upload",
       steps: {
         file: {
@@ -346,6 +354,10 @@ const translations = {
       needAudioSave: "Bạn cần chọn file nhạc trước khi lưu.",
       titleArtistRequired: "Tên track và nghệ sĩ là bắt buộc.",
       saveFailed: "Không thể lưu track lên server.",
+      updateFailed: "Không thể cập nhật track trên server.",
+      loadingEditTrack: "Đang tải bài hát cần chỉnh sửa.",
+      editTrackNotFound: "Không tìm thấy bài hát đã upload để chỉnh sửa.",
+      currentAudio: "File audio hiện tại",
       trackFile: "Track file",
       chooseAudio: "Chọn file audio",
       supportedAudio: "Hỗ trợ MP3, WAV, FLAC, AIFF, ALAC, M4A và OGG.",
@@ -364,10 +376,14 @@ const translations = {
       descriptionLabel: "Mô tả",
       descriptionPlaceholder: "Ghi chú ngắn về track này.",
       savedTitle: "Đã lưu track",
+      updatedTitle: "Đã cập nhật track",
       savedDescription:
         "Track đã được lưu vào Supabase và sẽ xuất hiện ở các trang hiển thị nhạc.",
+      updatedDescription:
+        "Thông tin bài hát đã được cập nhật và sẽ đồng bộ lại trong thư viện.",
       saving: "Đang lưu",
       saveTrack: "Lưu track",
+      updateTrack: "Lưu chỉnh sửa",
       uploadNew: "Upload bài mới",
     },
   },
@@ -676,6 +692,11 @@ const translations = {
       recentlyPlayed: "Recently played",
       inLibrary: "In library",
       deleteTrack: "Delete {title}",
+      editTrack: "Edit {title}",
+      editTrackTitle: "Edit this track?",
+      editTrackConfirm:
+        'You will go to the Upload page to update "{title}".',
+      editTrackAction: "Go to edit",
       deleteTrackTitle: "Delete this track?",
       deleteTrackConfirm:
         '"{title}" will be deleted from Supabase and removed from the library.',
@@ -686,8 +707,11 @@ const translations = {
     upload: {
       pageAria: "Upload track",
       title: "Upload music",
+      editTitle: "Edit music",
       description:
         "Upload a file, enter track info, and save it to Supabase through the Node.js backend.",
+      editDescription:
+        "Update a track you uploaded. You can keep the current file or choose a new one.",
       stepsAria: "Upload steps",
       steps: {
         file: {
@@ -711,6 +735,10 @@ const translations = {
       needAudioSave: "Choose an audio file before saving.",
       titleArtistRequired: "Track title and artist are required.",
       saveFailed: "Could not save the track to the server.",
+      updateFailed: "Could not update the track on the server.",
+      loadingEditTrack: "Loading the track to edit.",
+      editTrackNotFound: "Could not find an uploaded track to edit.",
+      currentAudio: "Current audio file",
       trackFile: "Track file",
       chooseAudio: "Choose an audio file",
       supportedAudio: "Supports MP3, WAV, FLAC, AIFF, ALAC, M4A, and OGG.",
@@ -730,10 +758,14 @@ const translations = {
       descriptionLabel: "Description",
       descriptionPlaceholder: "Add a short note about this track.",
       savedTitle: "Track saved",
+      updatedTitle: "Track updated",
       savedDescription:
         "The track was saved to Supabase and will appear on music pages.",
+      updatedDescription:
+        "The track details were updated and will sync back into the library.",
       saving: "Saving",
       saveTrack: "Save track",
+      updateTrack: "Save changes",
       uploadNew: "Upload another track",
     },
   },

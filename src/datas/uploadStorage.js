@@ -17,7 +17,7 @@ export function isUploadStorageAvailable() {
 }
 
 export async function getStoredTracks(accessToken) {
-  const response = await fetch("/api/tracks", {
+  const response = await fetch("/api/me/tracks", {
     headers: getAuthHeaders(accessToken),
   });
   const payload = await readJsonResponse(response, "Không thể đọc danh sách track từ server.");
@@ -42,6 +42,30 @@ export async function saveUploadedTrackToFiles(track, accessToken) {
     body: formData,
   });
   const payload = await readJsonResponse(response, "Không thể lưu track lên server.");
+
+  return payload.track;
+}
+
+export async function updateUploadedTrack(trackId, track, accessToken) {
+  const formData = new FormData();
+  const { audioBlob, coverBlob, ...trackInfo } = track;
+
+  formData.append("track", JSON.stringify(trackInfo));
+
+  if (audioBlob) {
+    formData.append("audio", audioBlob, track.audioFileName || "track.mp3");
+  }
+
+  if (coverBlob) {
+    formData.append("cover", coverBlob, track.coverFileName || "cover.jpg");
+  }
+
+  const response = await fetch(`/api/tracks/${encodeURIComponent(trackId)}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(accessToken),
+    body: formData,
+  });
+  const payload = await readJsonResponse(response, "Không thể cập nhật track trên server.");
 
   return payload.track;
 }

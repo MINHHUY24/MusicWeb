@@ -298,11 +298,33 @@ function normalizeCategory(row, tracks) {
   };
 }
 
-async function getPublishedTracks(userId) {
+function applyPublishedTrackFilters(query, queryOptions) {
+  if (queryOptions.filterByStatus) {
+    query.set("status", "eq.published");
+  }
+
+  if (queryOptions.userFilterMode === "user_id_or_path") {
+    query.set(
+      "or",
+      `(user_id.eq.${queryOptions.userId},audio_path.like.tracks/${queryOptions.userId}/%)`,
+    );
+  }
+
+  if (queryOptions.userFilterMode === "path_only") {
+    query.set("audio_path", `like.tracks/${queryOptions.userId}/%`);
+  }
+
+  if (queryOptions.orderByCreatedAt) {
+    query.set("order", "created_at.desc");
+  }
+}
+
+async function getPublishedTracks({ userId = "", onlyUserUploads = false } = {}) {
   const queryOptions = {
     embedCategories: true,
     filterByStatus: true,
-    filterByUser: Boolean(userId),
+    userFilterMode: userId && onlyUserUploads ? "user_id_or_path" : "none",
+    userId,
     orderByCreatedAt: true,
   };
 
@@ -311,17 +333,7 @@ async function getPublishedTracks(userId) {
       select: queryOptions.embedCategories ? "*,categories(id,name,tone,description)" : "*",
     });
 
-    if (queryOptions.filterByStatus) {
-      query.set("status", "eq.published");
-    }
-
-    if (queryOptions.filterByUser) {
-      query.set("user_id", `eq.${userId}`);
-    }
-
-    if (queryOptions.orderByCreatedAt) {
-      query.set("order", "created_at.desc");
-    }
+    applyPublishedTrackFilters(query, queryOptions);
 
     try {
       const rows = await supabaseFetch(`/rest/v1/tracks?${query.toString()}`);
@@ -330,8 +342,8 @@ async function getPublishedTracks(userId) {
     } catch (error) {
       const missingColumn = getMissingSchemaColumn(error);
 
-      if (missingColumn === "user_id" && queryOptions.filterByUser) {
-        queryOptions.filterByUser = false;
+      if (missingColumn === "user_id" && queryOptions.userFilterMode === "user_id_or_path") {
+        queryOptions.userFilterMode = "path_only";
         continue;
       }
 
@@ -393,11 +405,47 @@ async function insertTrack(insertPayload) {
   throw new Error("Cannot insert track with current Supabase schema.");
 }
 
+async function updateTrack(updateQuery, updatePayload) {
+  const payload = { ...updatePayload };
+  let embedCategories = true;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      const select = embedCategories ? "*,categories(id,name,tone,description)" : "*";
+      const separator = updateQuery.includes("?") ? "&" : "?";
+
+      return await supabaseFetch(
+        `${updateQuery}${separator}select=${encodeURIComponent(select)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    } catch (error) {
+      const missingColumn = getMissingSchemaColumn(error);
+
+      if (missingColumn && Object.hasOwn(payload, missingColumn)) {
+        delete payload[missingColumn];
+        continue;
+      }
+
+      if (embedCategories && getIsEmbeddedResourceError(error)) {
+        embedCategories = false;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Cannot update track with current Supabase schema.");
+}
+
 async function handleGetCategories(request, response) {
-  const user = await requireAuthenticatedUser(request, response);
-
-  if (!user) return;
-
   const categoryQuery = new URLSearchParams({
     select: "*",
     is_active: "eq.true",
@@ -405,7 +453,7 @@ async function handleGetCategories(request, response) {
   });
   const [categoryRows, tracks] = await Promise.all([
     supabaseFetch(`/rest/v1/categories?${categoryQuery.toString()}`),
-    getPublishedTracks(user.id),
+    getPublishedTracks(),
   ]);
 
   sendJson(response, 200, {
@@ -414,11 +462,20 @@ async function handleGetCategories(request, response) {
 }
 
 async function handleGetTracks(request, response) {
+  const tracks = await getPublishedTracks();
+
+  sendJson(response, 200, { tracks });
+}
+
+async function handleGetCurrentUserTracks(request, response) {
   const user = await requireAuthenticatedUser(request, response);
 
   if (!user) return;
 
-  const tracks = await getPublishedTracks(user.id);
+  const tracks = await getPublishedTracks({
+    userId: user.id,
+    onlyUserUploads: true,
+  });
 
   sendJson(response, 200, { tracks });
 }
@@ -470,47 +527,138 @@ async function handleCreateTrack(request, response) {
   sendJson(response, 201, { track: normalizeTrack(rows[0]) });
 }
 
-async function handleDeleteTrack(request, trackId, response) {
-  const user = await requireAuthenticatedUser(request, response);
+function buildOwnedTrackQuery(trackId, userId, userFilterMode, extraParams = {}) {
+  const query = new URLSearchParams({
+    id: `eq.${trackId}`,
+    ...extraParams,
+  });
 
-  if (!user) return;
+  if (userFilterMode === "user_id_or_path") {
+    query.set("or", `(user_id.eq.${userId},audio_path.like.tracks/${userId}/%)`);
+  } else {
+    query.set("audio_path", `like.tracks/${userId}/%`);
+  }
 
-  let rows;
+  return query;
+}
+
+async function getOwnedTrackForMutation(trackId, userId) {
+  const query = buildOwnedTrackQuery(trackId, userId, "user_id_or_path", {
+    select: "id,audio_path,cover_path",
+  });
 
   try {
-    rows = await supabaseFetch(
-      `/rest/v1/tracks?id=eq.${encodeURIComponent(trackId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,audio_path,cover_path`,
-    );
+    const rows = await supabaseFetch(`/rest/v1/tracks?${query.toString()}`);
+
+    return {
+      track: rows[0] ?? null,
+      userFilterMode: "user_id_or_path",
+    };
   } catch (error) {
     if (getMissingSchemaColumn(error) !== "user_id") {
       throw error;
     }
 
-    rows = await supabaseFetch(
-      `/rest/v1/tracks?id=eq.${encodeURIComponent(trackId)}&select=id,audio_path,cover_path`,
-    );
+    const fallbackQuery = buildOwnedTrackQuery(trackId, userId, "path_only", {
+      select: "id,audio_path,cover_path",
+    });
+    const rows = await supabaseFetch(`/rest/v1/tracks?${fallbackQuery.toString()}`);
+
+    return {
+      track: rows[0] ?? null,
+      userFilterMode: "path_only",
+    };
+  }
+}
+
+async function deleteOwnedTrack(trackId, userId, userFilterMode) {
+  const query = buildOwnedTrackQuery(trackId, userId, userFilterMode);
+
+  await supabaseFetch(`/rest/v1/tracks?${query.toString()}`, {
+    method: "DELETE",
+  });
+}
+
+async function handleUpdateTrack(request, trackId, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  const { track: existingTrack, userFilterMode } = await getOwnedTrackForMutation(trackId, user.id);
+
+  if (!existingTrack) {
+    sendJson(response, 404, { error: "Track not found." });
+    return;
   }
 
-  const track = rows[0];
+  const body = await collectRequestBody(request);
+  const { fields, files } = parseMultipartForm(body, request.headers["content-type"] || "");
+  const track = JSON.parse(fields.track || "{}");
+  const title = String(track.title || "").trim();
+  const artist = String(track.artist || "").trim();
+
+  if (!title || !artist) {
+    sendJson(response, 400, { error: "Missing track title or artist." });
+    return;
+  }
+
+  const updatePayload = {
+    title,
+    artist,
+    category_id: track.categoryValue || "other",
+    description: track.description || "",
+    duration_seconds: track.durationSeconds ? Math.round(track.durationSeconds) : null,
+    duration_label: track.durationLabel || "Chưa rõ",
+  };
+  const replacedAudioPaths = [];
+  const replacedCoverPaths = [];
+
+  if (files.audio?.buffer?.length) {
+    const audioFileName = sanitizeStorageFileName(files.audio.fileName, "track.mp3");
+    const audioPath = `tracks/${user.id}/${audioFileName}`;
+
+    await uploadStorageObject(AUDIO_BUCKET, audioPath, files.audio);
+    updatePayload.audio_path = audioPath;
+    updatePayload.audio_file_name = files.audio.fileName;
+    updatePayload.audio_file_size = files.audio.buffer.length;
+    replacedAudioPaths.push(existingTrack.audio_path);
+  }
+
+  if (files.cover?.buffer?.length) {
+    const coverFileName = sanitizeStorageFileName(files.cover.fileName, "cover.jpg");
+    const coverPath = `covers/${user.id}/${coverFileName}`;
+
+    await uploadStorageObject(COVER_BUCKET, coverPath, files.cover);
+    updatePayload.cover_path = coverPath;
+    updatePayload.cover_file_name = files.cover.fileName;
+    updatePayload.cover_file_size = files.cover.buffer.length;
+    replacedCoverPaths.push(existingTrack.cover_path);
+  }
+
+  const query = buildOwnedTrackQuery(trackId, user.id, userFilterMode);
+  const rows = await updateTrack(`/rest/v1/tracks?${query.toString()}`, updatePayload);
+
+  await Promise.all([
+    removeStorageObjects(AUDIO_BUCKET, replacedAudioPaths),
+    removeStorageObjects(COVER_BUCKET, replacedCoverPaths),
+  ]);
+
+  sendJson(response, 200, { track: normalizeTrack(rows[0]) });
+}
+
+async function handleDeleteTrack(request, trackId, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  const { track, userFilterMode } = await getOwnedTrackForMutation(trackId, user.id);
 
   if (!track) {
     sendJson(response, 404, { error: "Track not found." });
     return;
   }
 
-  try {
-    await supabaseFetch(`/rest/v1/tracks?id=eq.${encodeURIComponent(trackId)}&user_id=eq.${encodeURIComponent(user.id)}`, {
-      method: "DELETE",
-    });
-  } catch (error) {
-    if (getMissingSchemaColumn(error) !== "user_id") {
-      throw error;
-    }
-
-    await supabaseFetch(`/rest/v1/tracks?id=eq.${encodeURIComponent(trackId)}`, {
-      method: "DELETE",
-    });
-  }
+  await deleteOwnedTrack(trackId, user.id, userFilterMode);
   await Promise.all([
     removeStorageObjects(AUDIO_BUCKET, [track.audio_path]),
     removeStorageObjects(COVER_BUCKET, [track.cover_path]),
@@ -543,12 +691,22 @@ async function handleRequest(request, response) {
       return;
     }
 
+    if (request.method === "GET" && url.pathname === "/api/me/tracks") {
+      await handleGetCurrentUserTracks(request, response);
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/tracks") {
       await handleCreateTrack(request, response);
       return;
     }
 
     const trackId = url.pathname.match(/^\/api\/tracks\/([^/]+)$/)?.[1];
+
+    if (request.method === "PATCH" && trackId) {
+      await handleUpdateTrack(request, decodeURIComponent(trackId), response);
+      return;
+    }
 
     if (request.method === "DELETE" && trackId) {
       await handleDeleteTrack(request, decodeURIComponent(trackId), response);

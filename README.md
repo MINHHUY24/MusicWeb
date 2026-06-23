@@ -241,18 +241,19 @@ Node server nằm tại `server/index.js`.
 | `GET` | `/api/health` | Kiểm tra API sống |
 | `GET` | `/api/auth/config` | Trả `SUPABASE_URL` và `SUPABASE_ANON_KEY` cho frontend |
 | `GET` | `/api/categories` | Lấy thể loại active và số bài theo thể loại |
-| `GET` | `/api/tracks` | Lấy track published |
+| `GET` | `/api/tracks` | Lấy toàn bộ track published để hiển thị public |
+| `GET` | `/api/me/tracks` | Lấy track published đã upload của tài khoản đang đăng nhập |
 | `POST` | `/api/tracks` | Upload audio/cover và insert metadata track |
 | `DELETE` | `/api/tracks/:id` | Xóa metadata và object trong Storage |
 
-Các endpoint nhạc cần `Authorization: Bearer <supabase-access-token>`.
+Các endpoint upload/xóa và `/api/me/tracks` cần `Authorization: Bearer <supabase-access-token>`.
 
 ## Luồng Dữ Liệu
 
 1. Frontend gọi `/api/auth/config` để khởi tạo Supabase client.
 2. Người dùng đăng nhập Google qua Supabase Auth.
-3. Frontend gọi `/api/tracks` và `/api/categories` kèm access token.
-4. Backend xác thực token qua Supabase Auth.
+3. Frontend gọi `/api/tracks` và `/api/categories` để lấy thư viện public cho Home.
+4. Khi đã đăng nhập, frontend gọi thêm `/api/me/tracks` kèm access token để lấy nhạc đã upload của tài khoản.
 5. Backend dùng service role key để đọc/ghi Database và Storage.
 6. Home, Category, Playlist, Profile nhận dữ liệu track/category từ API.
 7. Khi upload/xóa thành công, frontend dispatch event `musicweb:tracks-updated` để reload thư viện.
@@ -283,7 +284,6 @@ node --check server/index.js
 ### Home hoặc Thể loại không hiện nhạc
 
 - Kiểm tra backend đã chạy `npm run dev:api`.
-- Kiểm tra đã đăng nhập Google.
 - Kiểm tra bảng `tracks` có dữ liệu.
 - Kiểm tra `/api/tracks` trả JSON hợp lệ.
 - Kiểm tra terminal backend để xem lỗi Supabase.

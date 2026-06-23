@@ -64,8 +64,14 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
 
   const selectedTone =
     toneOptions.find((option) => option.value === form.tone) ?? toneOptions[0];
-  const selectedToneLabel = t(`playlistPage.tones.${selectedTone.value}`, {}, selectedTone.label);
-  const localizedPlaylists = playlists.map((playlist) => localizePlaylist(playlist, t));
+  const selectedToneLabel = t(
+    `playlistPage.tones.${selectedTone.value}`,
+    {},
+    selectedTone.label,
+  );
+  const localizedPlaylists = playlists.map((playlist) =>
+    localizePlaylist(playlist, t),
+  );
 
   const filteredSongs = useMemo(() => {
     const keyword = normalizeSearchText(songSearch.trim());
@@ -73,7 +79,9 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
     if (!keyword) return availableSongs;
 
     return availableSongs.filter((song) => {
-      const searchableText = normalizeSearchText(`${song.title} ${song.artist}`);
+      const searchableText = normalizeSearchText(
+        `${song.title} ${song.artist}`,
+      );
 
       return searchableText.includes(keyword);
     });
@@ -164,7 +172,8 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
     const newPlaylist = {
       id: `playlist-${Date.now()}`,
       title: playlistName,
-      description: form.description.trim() || t("playlistPage.defaultDescription"),
+      description:
+        form.description.trim() || t("playlistPage.defaultDescription"),
       songCount: selectedSongs.length,
       durationMinutes: totalDuration,
       duration: formatMinutes(totalDuration, language),
@@ -172,14 +181,21 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
       cover: form.cover,
     };
 
-    setCustomPlaylists((currentPlaylists) => [newPlaylist, ...currentPlaylists]);
+    setCustomPlaylists((currentPlaylists) => [
+      newPlaylist,
+      ...currentPlaylists,
+    ]);
     closeCreateDialog();
   }
 
   if (isLoading) {
     return (
       <section className="page-section playlist-page">
-        <LoadingState title={t("common.waitingTitle")} description={t("common.waitingMusicDescription")} quiet />
+        <LoadingState
+          title={t("common.waitingTitle")}
+          description={t("common.waitingMusicDescription")}
+          quiet
+        />
       </section>
     );
   }
@@ -187,7 +203,11 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
   if (error) {
     return (
       <section className="page-section playlist-page">
-        <LoadingState title={t("common.musicLoadErrorTitle")} description={error} variant="error" />
+        <LoadingState
+          title={t("common.musicLoadErrorTitle")}
+          description={error}
+          variant="error"
+        />
       </section>
     );
   }
@@ -199,7 +219,6 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
         <div className="playlist-panel-heading">
           <div>
             <h2>{t("playlistPage.title")}</h2>
-            <p>{t("playlistPage.description")}</p>
           </div>
 
           <span className="playlist-panel-badge">
@@ -249,7 +268,9 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
           >
             <div className="playlist-dialog-heading">
               <div>
-                <h2 id="playlist-dialog-title">{t("playlistPage.newDialogTitle")}</h2>
+                <h2 id="playlist-dialog-title">
+                  {t("playlistPage.newDialogTitle")}
+                </h2>
               </div>
 
               <button
@@ -326,7 +347,8 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
                           : "playlist-tone-select"
                       }
                       onBlur={(event) => {
-                        if (event.currentTarget.contains(event.relatedTarget)) return;
+                        if (event.currentTarget.contains(event.relatedTarget))
+                          return;
                         setIsToneMenuOpen(false);
                       }}
                     >
@@ -369,7 +391,13 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
                                 <span
                                   className={`playlist-tone-dot playlist-tone-dot-${option.value}`}
                                 />
-                                <span>{t(`playlistPage.tones.${option.value}`, {}, option.label)}</span>
+                                <span>
+                                  {t(
+                                    `playlistPage.tones.${option.value}`,
+                                    {},
+                                    option.label,
+                                  )}
+                                </span>
                                 {isSelected ? (
                                   <Check size={16} weight="bold" />
                                 ) : null}
@@ -434,7 +462,11 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
                           <strong>{song.title}</strong>
                           <small>{song.artist}</small>
                         </span>
-                        <em>{t("playlistPage.songMinute", { count: song.minutes })}</em>
+                        <em>
+                          {t("playlistPage.songMinute", {
+                            count: song.minutes,
+                          })}
+                        </em>
                       </button>
                     );
                   })}

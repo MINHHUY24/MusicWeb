@@ -78,6 +78,7 @@ function App() {
   const [musicLibrary, setMusicLibrary] = useState([])
   const [musicCategories, setMusicCategories] = useState([])
   const [uploadedTracks, setUploadedTracks] = useState([])
+  const [uploadedTracksLoadError, setUploadedTracksLoadError] = useState('')
   const [playerQueue, setPlayerQueue] = useState([])
   const [isMusicLoading, setIsMusicLoading] = useState(true)
   const [musicLoadError, setMusicLoadError] = useState('')
@@ -178,18 +179,6 @@ function App() {
     async function loadSupabaseMusic() {
       if (isAuthLoading) return
 
-      if (!authSession?.access_token) {
-        setUploadedTracks([])
-        setMusicLibrary([])
-        setMusicCategories([])
-        setPlayerQueue([])
-        setCurrentSongId('')
-        setIsPlaying(false)
-        setIsMusicLoading(false)
-        setMusicLoadError('')
-        return
-      }
-
       if (retryTimer) {
         window.clearTimeout(retryTimer)
         retryTimer = null
@@ -197,17 +186,16 @@ function App() {
 
       setIsMusicLoading(true)
       setMusicLoadError('')
+      setUploadedTracksLoadError('')
       let didLoadMusic = false
-      const requestOptions = {
-        headers: {
-          Authorization: `Bearer ${authSession.access_token}`,
-        },
-      }
+      const authHeaders = authSession?.access_token
+        ? { Authorization: `Bearer ${authSession.access_token}` }
+        : {}
 
       try {
         const [tracksResponse, categoriesResponse] = await Promise.all([
-          fetch('/api/tracks', requestOptions),
-          fetch('/api/categories', requestOptions),
+          fetch('/api/tracks'),
+          fetch('/api/categories'),
         ])
 
         const [tracksPayload, categoriesPayload] = await Promise.all([
@@ -226,13 +214,39 @@ function App() {
 
         const tracks = tracksPayload.tracks ?? []
         const categories = categoriesPayload.categories ?? []
+        let nextUploadedTracks = []
+        let nextUploadedTracksLoadError = ''
+
+        if (authSession?.access_token) {
+          try {
+            const uploadedTracksResponse = await fetch('/api/me/tracks', {
+              headers: authHeaders,
+            })
+            const uploadedTracksPayload = await uploadedTracksResponse.json().catch(() => ({}))
+
+            if (!uploadedTracksResponse.ok) {
+              throw new Error(
+                getSupabaseErrorMessage(
+                  uploadedTracksPayload,
+                  'Không thể tải nhạc đã upload của tài khoản.',
+                ),
+              )
+            }
+
+            nextUploadedTracks = uploadedTracksPayload.tracks ?? []
+          } catch (error) {
+            nextUploadedTracksLoadError =
+              error instanceof Error ? error.message : 'Không thể tải nhạc đã upload của tài khoản.'
+          }
+        }
 
         if (!isMounted) return
 
         const nextCategories = categories.length ? categories : buildCategoriesFromTracks(tracks)
         const nextTrackById = new Map(tracks.map((track) => [track.id, track]))
 
-        setUploadedTracks(tracks)
+        setUploadedTracks(nextUploadedTracks)
+        setUploadedTracksLoadError(nextUploadedTracksLoadError)
         setMusicLibrary(tracks)
         setMusicCategories(nextCategories)
         didLoadMusic = true
@@ -254,6 +268,7 @@ function App() {
         if (!isMounted) return
 
         setUploadedTracks([])
+        setUploadedTracksLoadError('')
         setMusicLibrary([])
         setMusicCategories([])
         setPlayerQueue([])
@@ -611,7 +626,7 @@ function App() {
                     listeningHistoryTracks={listeningHistoryTracks}
                     uploadedTracks={uploadedTracks}
                     isLoading={isMusicLoading}
-                    error={musicLoadError}
+                    error={uploadedTracksLoadError || musicLoadError}
                   />
                 </AuthGate>
               }

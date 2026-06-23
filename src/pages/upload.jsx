@@ -21,10 +21,13 @@ import {
 } from "../datas/uploadData.js";
 import {
   isUploadStorageAvailable,
+  getStoredTracks,
   saveUploadedTrackToFiles,
+  updateUploadedTrack,
 } from "../datas/uploadStorage.js";
 import { useLanguage } from "../i18n.jsx";
 import "../styles/upload.css";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const audioExtensionPattern = /\.(wav|flac|aiff|aif|alac|mp3|m4a|ogg)$/i;
 
@@ -86,29 +89,55 @@ function revokeAssetUrls(urls) {
 
 function Upload({ auth }) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editTrackId = searchParams.get("edit") || "";
+  const isEditMode = Boolean(editTrackId);
   const [currentStep, setCurrentStep] = useState(0);
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
+  const [editTrack, setEditTrack] = useState(null);
   const [form, setForm] = useState(initialUploadForm);
   const [audioPreview, setAudioPreview] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
   const [audioDuration, setAudioDuration] = useState(null);
   const [lastSavedTrack, setLastSavedTrack] = useState(null);
   const [error, setError] = useState(() =>
-    isUploadStorageAvailable()
-      ? ""
-      : "upload.apiUnavailable",
+    isUploadStorageAvailable() ? "" : "upload.apiUnavailable",
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditTrackLoading, setIsEditTrackLoading] = useState(false);
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
-  const [availableUploadCategories, setAvailableUploadCategories] = useState(uploadCategories);
+  const [availableUploadCategories, setAvailableUploadCategories] =
+    useState(uploadCategories);
   const previewUrlsRef = useRef({ audio: "", cover: "" });
   const categoryPickerRef = useRef(null);
+  const hasExistingAudio = Boolean(isEditMode && editTrack?.audio);
+  const hasAudioSelection = Boolean(audioFile || hasExistingAudio);
+  const uploadWizardClassName = [
+    "upload-wizard",
+    hasAudioSelection ? "upload-wizard-has-audio" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const hasBlockingEditError = Boolean(
+    isEditMode && !editTrack && error === "upload.editTrackNotFound",
+  );
+  const canRenderUploadStage = !isEditTrackLoading && !hasBlockingEditError;
+  const audioSummaryName =
+    audioFile?.name || (hasExistingAudio ? t("upload.currentAudio") : "");
+  const audioSummaryMeta = audioFile
+    ? `${formatBytes(audioFile.size)} - ${formatDuration(audioDuration, t)}`
+    : editTrack?.durationLabel ||
+      editTrack?.duration ||
+      formatDuration(audioDuration, t);
 
   const selectedCategory = useMemo(() => {
     return (
-      availableUploadCategories.find((category) => category.value === form.category) ??
+      availableUploadCategories.find(
+        (category) => category.value === form.category,
+      ) ??
       availableUploadCategories[0] ??
       uploadCategories[0]
     );
@@ -149,9 +178,15 @@ function Upload({ auth }) {
     }
 
     return availableUploadCategories.filter((category) => {
-      const localizedLabel = t(`categories.${category.value}.title`, {}, category.label);
+      const localizedLabel = t(
+        `categories.${category.value}.title`,
+        {},
+        category.label,
+      );
 
-      return normalizeSearchValue(`${localizedLabel} ${category.value}`).includes(searchValue);
+      return normalizeSearchValue(
+        `${localizedLabel} ${category.value}`,
+      ).includes(searchValue);
     });
   }, [availableUploadCategories, categorySearch, t]);
 
@@ -175,10 +210,12 @@ function Upload({ auth }) {
         return response.json();
       })
       .then((payload) => {
-        const categoriesFromServer = (payload.categories ?? []).map((category) => ({
-          value: category.id,
-          label: category.title,
-        }));
+        const categoriesFromServer = (payload.categories ?? []).map(
+          (category) => ({
+            value: category.id,
+            label: category.title,
+          }),
+        );
 
         if (isMounted && categoriesFromServer.length) {
           setAvailableUploadCategories(categoriesFromServer);
@@ -206,6 +243,80 @@ function Upload({ auth }) {
       isMounted = false;
     };
   }, [auth?.session?.access_token]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!editTrackId) {
+      return undefined;
+    }
+
+    if (!isUploadStorageAvailable()) {
+      return undefined;
+    }
+
+    queueMicrotask(() => {
+      if (!isMounted) return;
+
+      setIsEditTrackLoading(true);
+      setError("");
+
+      getStoredTracks(auth?.session?.access_token)
+        .then((tracks) => {
+          const track = tracks.find(
+            (currentTrack) => currentTrack.id === editTrackId,
+          );
+
+          if (!track) {
+            throw new Error("upload.editTrackNotFound");
+          }
+
+          if (!isMounted) return;
+
+          revokeAssetUrls(previewUrlsRef.current);
+          previewUrlsRef.current = { audio: "", cover: "" };
+          setEditTrack(track);
+          setAudioFile(null);
+          setCoverFile(null);
+          setCurrentStep(1);
+          setLastSavedTrack(null);
+          setAudioPreview(track.audio || "");
+          setCoverPreview(track.cover || "");
+          setAudioDuration(track.durationSeconds || null);
+          setCategorySearch("");
+          setIsCategoryPickerOpen(false);
+          setForm({
+            ...initialUploadForm,
+            title: track.title || "",
+            artist: track.artist || "",
+            category: track.category || initialUploadForm.category,
+            description:
+              track.description === "Track upload Supabase"
+                ? ""
+                : track.description || "",
+          });
+        })
+        .catch((loadError) => {
+          if (!isMounted) return;
+
+          setEditTrack(null);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "upload.editTrackNotFound",
+          );
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsEditTrackLoading(false);
+          }
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auth?.session?.access_token, editTrackId]);
 
   useEffect(() => {
     return () => {
@@ -255,7 +366,8 @@ function Upload({ auth }) {
   async function handleAudioSelect(file) {
     if (!file) return;
 
-    const isAudioFile = file.type.startsWith("audio/") || audioExtensionPattern.test(file.name);
+    const isAudioFile =
+      file.type.startsWith("audio/") || audioExtensionPattern.test(file.name);
 
     if (!isAudioFile) {
       setError("upload.invalidAudio");
@@ -327,7 +439,7 @@ function Upload({ auth }) {
   }
 
   function goToInfoStep() {
-    if (!audioFile) {
+    if (!audioFile && !hasExistingAudio) {
       setError("upload.needAudioContinue");
       return;
     }
@@ -339,8 +451,11 @@ function Upload({ auth }) {
   async function saveTrack() {
     const title = form.title.trim();
     const artist = form.artist.trim();
+    const nextDuration = audioFile
+      ? audioDuration
+      : (editTrack?.durationSeconds ?? audioDuration);
 
-    if (!audioFile) {
+    if (!audioFile && !hasExistingAudio) {
       setError("upload.needAudioSave");
       setCurrentStep(0);
       return;
@@ -358,11 +473,11 @@ function Upload({ auth }) {
       category: selectedCategoryLabel,
       categoryValue: selectedCategory.value,
       description: form.description.trim(),
-      durationSeconds: audioDuration,
-      durationLabel: formatDuration(audioDuration, t),
-      audioFileName: audioFile.name,
-      audioFileType: audioFile.type || "audio",
-      audioFileSize: audioFile.size,
+      durationSeconds: nextDuration,
+      durationLabel: formatDuration(nextDuration, t),
+      audioFileName: audioFile?.name || "",
+      audioFileType: audioFile?.type || "audio",
+      audioFileSize: audioFile?.size || null,
       audioBlob: audioFile,
       coverFileName: coverFile?.name ?? "",
       coverFileType: coverFile?.type ?? "",
@@ -374,12 +489,24 @@ function Upload({ auth }) {
     setError("");
 
     try {
-      const savedTrack = await saveUploadedTrackToFiles(newTrack, auth?.session?.access_token);
+      const savedTrack = isEditMode
+        ? await updateUploadedTrack(
+            editTrackId,
+            newTrack,
+            auth?.session?.access_token,
+          )
+        : await saveUploadedTrackToFiles(newTrack, auth?.session?.access_token);
       setLastSavedTrack(savedTrack);
       setCurrentStep(2);
       window.dispatchEvent(new CustomEvent("musicweb:tracks-updated"));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "upload.saveFailed");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : isEditMode
+            ? "upload.updateFailed"
+            : "upload.saveFailed",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -399,17 +526,24 @@ function Upload({ auth }) {
     setCategorySearch("");
     setIsCategoryPickerOpen(false);
     setError("");
+    setEditTrack(null);
+
+    if (isEditMode) {
+      navigate("/upload", { replace: true });
+    }
   }
 
   return (
     <section className="page-section upload-page">
       {/* NOTE: Wizard upload theo từng bước */}
-      <section className="upload-wizard" aria-label={t("upload.pageAria")}>
+      <section
+        className={uploadWizardClassName}
+        aria-label={t("upload.pageAria")}
+      >
         {/* NOTE: Header trang Upload nằm trong box để box cao đồng bộ sidebar */}
         <div className="upload-page-heading">
           <div>
-            <h2>{t("upload.title")}</h2>
-            <p>{t("upload.description")}</p>
+            <h2>{isEditMode ? t("upload.editTitle") : t("upload.title")}</h2>
           </div>
         </div>
 
@@ -441,7 +575,14 @@ function Upload({ auth }) {
           </div>
         ) : null}
 
-        {currentStep === 0 ? (
+        {isEditTrackLoading ? (
+          <div className="upload-status" role="status">
+            <MusicNotesSimple size={20} weight="fill" />
+            <span>{t("upload.loadingEditTrack")}</span>
+          </div>
+        ) : null}
+
+        {canRenderUploadStage && currentStep === 0 ? (
           // NOTE: Bước 1 - chọn file nhạc
           <div className="upload-stage upload-stage-file">
             <div className="upload-stage-copy">
@@ -451,7 +592,11 @@ function Upload({ auth }) {
             </div>
 
             <label
-              className={audioFile ? "upload-dropzone upload-dropzone-filled" : "upload-dropzone"}
+              className={
+                audioFile || hasExistingAudio
+                  ? "upload-dropzone upload-dropzone-filled"
+                  : "upload-dropzone"
+              }
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => handleDrop(event, "audio")}
             >
@@ -461,26 +606,33 @@ function Upload({ auth }) {
                 onChange={(event) => handleAudioSelect(event.target.files?.[0])}
               />
               <span className="upload-dropzone-icon">
-                {audioFile ? (
+                {audioFile || hasExistingAudio ? (
                   <FileAudio size={50} weight="fill" />
                 ) : (
                   <CloudArrowUp size={58} weight="bold" />
                 )}
               </span>
-              <strong>{audioFile ? audioFile.name : t("upload.chooseDrop")}</strong>
-              <small>
+              <strong>
                 {audioFile
-                  ? `${formatBytes(audioFile.size)} - ${formatDuration(audioDuration, t)}`
-                  : t("upload.storageHint")}
-              </small>
+                  ? audioFile.name
+                  : hasExistingAudio
+                    ? t("upload.currentAudio")
+                    : t("upload.chooseDrop")}
+              </strong>
             </label>
 
             {audioPreview ? (
               <div className="upload-audio-card">
                 <FileAudio size={28} weight="fill" />
                 <div>
-                  <strong>{audioFile.name}</strong>
-                  <span>{formatBytes(audioFile.size)}</span>
+                  <strong>
+                    {audioFile?.name ||
+                      editTrack?.title ||
+                      t("upload.currentAudio")}
+                  </strong>
+                  <span>
+                    {audioFile ? formatBytes(audioFile.size) : audioSummaryMeta}
+                  </span>
                 </div>
                 <audio src={audioPreview} controls />
               </div>
@@ -488,7 +640,7 @@ function Upload({ auth }) {
           </div>
         ) : null}
 
-        {currentStep === 1 ? (
+        {canRenderUploadStage && currentStep === 1 ? (
           // NOTE: Bước 2 - nhập thông tin track
           <div className="upload-stage upload-stage-info">
             <div className="upload-info-grid">
@@ -496,7 +648,9 @@ function Upload({ auth }) {
               <div className="upload-cover-block">
                 <label
                   className={
-                    coverPreview ? "upload-cover-dropzone upload-cover-dropzone-filled" : "upload-cover-dropzone"
+                    coverPreview
+                      ? "upload-cover-dropzone upload-cover-dropzone-filled"
+                      : "upload-cover-dropzone"
                   }
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => handleDrop(event, "cover")}
@@ -504,7 +658,9 @@ function Upload({ auth }) {
                   <input
                     type="file"
                     accept={coverFileAccept}
-                    onChange={(event) => handleCoverSelect(event.target.files?.[0])}
+                    onChange={(event) =>
+                      handleCoverSelect(event.target.files?.[0])
+                    }
                   />
                   {coverPreview ? (
                     <img src={coverPreview} alt={t("upload.coverAlt")} />
@@ -518,11 +674,15 @@ function Upload({ auth }) {
 
                 <label className="upload-cover-button">
                   <UploadSimple size={18} weight="bold" />
-                  <span>{coverFile ? coverFile.name : t("upload.uploadImage")}</span>
+                  <span>
+                    {coverFile ? coverFile.name : t("upload.uploadImage")}
+                  </span>
                   <input
                     type="file"
                     accept={coverFileAccept}
-                    onChange={(event) => handleCoverSelect(event.target.files?.[0])}
+                    onChange={(event) =>
+                      handleCoverSelect(event.target.files?.[0])
+                    }
                   />
                 </label>
               </div>
@@ -535,7 +695,9 @@ function Upload({ auth }) {
                     type="text"
                     value={form.title}
                     placeholder={t("upload.trackPlaceholder")}
-                    onChange={(event) => updateForm("title", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("title", event.target.value)
+                    }
                   />
                 </label>
 
@@ -545,7 +707,9 @@ function Upload({ auth }) {
                     type="text"
                     value={form.artist}
                     placeholder={t("upload.artistPlaceholder")}
-                    onChange={(event) => updateForm("artist", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("artist", event.target.value)
+                    }
                   />
                 </label>
 
@@ -565,7 +729,9 @@ function Upload({ auth }) {
                       type="button"
                       aria-haspopup="listbox"
                       aria-expanded={isCategoryPickerOpen}
-                      onClick={() => setIsCategoryPickerOpen((isOpen) => !isOpen)}
+                      onClick={() =>
+                        setIsCategoryPickerOpen((isOpen) => !isOpen)
+                      }
                     >
                       <span>{selectedCategoryLabel}</span>
                       <CaretDown size={18} weight="bold" />
@@ -580,14 +746,17 @@ function Upload({ auth }) {
                             value={categorySearch}
                             placeholder={t("upload.categorySearch")}
                             autoFocus
-                            onChange={(event) => setCategorySearch(event.target.value)}
+                            onChange={(event) =>
+                              setCategorySearch(event.target.value)
+                            }
                           />
                         </label>
 
                         <div className="upload-category-options" role="listbox">
                           {filteredUploadCategories.length ? (
                             filteredUploadCategories.map((category) => {
-                              const isSelected = category.value === form.category;
+                              const isSelected =
+                                category.value === form.category;
 
                               return (
                                 <button
@@ -602,13 +771,23 @@ function Upload({ auth }) {
                                   aria-selected={isSelected}
                                   onClick={() => selectCategory(category.value)}
                                 >
-                                  <span>{t(`categories.${category.value}.title`, {}, category.label)}</span>
-                                  {isSelected ? <Check size={17} weight="bold" /> : null}
+                                  <span>
+                                    {t(
+                                      `categories.${category.value}.title`,
+                                      {},
+                                      category.label,
+                                    )}
+                                  </span>
+                                  {isSelected ? (
+                                    <Check size={17} weight="bold" />
+                                  ) : null}
                                 </button>
                               );
                             })
                           ) : (
-                            <span className="upload-category-empty">{t("upload.noCategoryResults")}</span>
+                            <span className="upload-category-empty">
+                              {t("upload.noCategoryResults")}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -621,30 +800,38 @@ function Upload({ auth }) {
                   <textarea
                     value={form.description}
                     placeholder={t("upload.descriptionPlaceholder")}
-                    onChange={(event) => updateForm("description", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("description", event.target.value)
+                    }
                   />
                 </label>
               </div>
             </div>
 
-            <div className="upload-file-summary">
-              <FileAudio size={24} weight="fill" />
-              <div>
-                <strong>{audioFile?.name}</strong>
-                <span>
-                  {formatBytes(audioFile?.size)} - {formatDuration(audioDuration, t)}
-                </span>
+            {audioSummaryName ? (
+              <div className="upload-file-summary">
+                <FileAudio size={24} weight="fill" />
+                <div>
+                  <strong>{audioSummaryName}</strong>
+                  <span>{audioSummaryMeta}</span>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         ) : null}
 
-        {currentStep === 2 ? (
+        {canRenderUploadStage && currentStep === 2 ? (
           // NOTE: Bước 3 - trạng thái lưu thành công
           <div className="upload-stage upload-stage-done">
             <CheckCircle size={88} weight="fill" />
-            <h3>{t("upload.savedTitle")}</h3>
-            <p>{t("upload.savedDescription")}</p>
+            <h3>
+              {isEditMode ? t("upload.updatedTitle") : t("upload.savedTitle")}
+            </h3>
+            <p>
+              {isEditMode
+                ? t("upload.updatedDescription")
+                : t("upload.savedDescription")}
+            </p>
 
             {lastSavedTrack ? (
               <div className="upload-success-card">
@@ -660,10 +847,11 @@ function Upload({ auth }) {
                   <span>{lastSavedTrack.artist}</span>
                   <small>
                     {t(
-                      `categories.${lastSavedTrack.categoryValue}.title`,
+                      `categories.${lastSavedTrack.categoryValue || lastSavedTrack.category}.title`,
                       {},
                       lastSavedTrack.categoryLabel || lastSavedTrack.category,
-                    )} - {formatDuration(lastSavedTrack.durationSeconds, t)}
+                    )}{" "}
+                    - {formatDuration(lastSavedTrack.durationSeconds, t)}
                   </small>
                 </div>
               </div>
@@ -676,14 +864,22 @@ function Upload({ auth }) {
           {currentStep === 0 ? (
             <span />
           ) : (
-            <button className="upload-secondary-button" type="button" onClick={goBack}>
+            <button
+              className="upload-secondary-button"
+              type="button"
+              onClick={goBack}
+            >
               <ArrowLeft size={18} weight="bold" />
               {t("common.back")}
             </button>
           )}
 
           {currentStep === 0 ? (
-            <button className="upload-primary-button" type="button" onClick={goToInfoStep}>
+            <button
+              className="upload-primary-button"
+              type="button"
+              onClick={goToInfoStep}
+            >
               {t("common.continue")}
               <ArrowRight size={18} weight="bold" />
             </button>
@@ -696,13 +892,21 @@ function Upload({ auth }) {
               disabled={isSaving}
               onClick={saveTrack}
             >
-              {isSaving ? t("upload.saving") : t("upload.saveTrack")}
+              {isSaving
+                ? t("upload.saving")
+                : isEditMode
+                  ? t("upload.updateTrack")
+                  : t("upload.saveTrack")}
               <CheckCircle size={18} weight="bold" />
             </button>
           ) : null}
 
           {currentStep === 2 ? (
-            <button className="upload-primary-button" type="button" onClick={resetUpload}>
+            <button
+              className="upload-primary-button"
+              type="button"
+              onClick={resetUpload}
+            >
               {t("upload.uploadNew")}
               <CloudArrowUp size={18} weight="bold" />
             </button>

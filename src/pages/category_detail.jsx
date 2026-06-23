@@ -1,63 +1,90 @@
-import { ArrowLeft, MusicNotesSimple, Play, Sparkle } from '@phosphor-icons/react'
-import { Link, Navigate, useParams } from 'react-router-dom'
-import LoadingState from '../components/loading_state.jsx'
-import { localizeCategory, useLanguage } from '../i18n.jsx'
-import '../styles/category_detail.css'
+import {
+  ArrowLeft,
+  MusicNotesSimple,
+  Play,
+  Sparkle,
+} from "@phosphor-icons/react";
+import { Link, Navigate, useParams } from "react-router-dom";
+import LoadingState from "../components/loading_state.jsx";
+import { localizeCategory, useLanguage } from "../i18n.jsx";
+import "../styles/category_detail.css";
 
-function CategoryDetail({ player, categories = [], tracks: allTracks = [], isLoading = false, error = '' }) {
-  const { t } = useLanguage()
-  const { categoryId } = useParams()
-  const baseCategory = categories.find((item) => item.id === categoryId)
+function CategoryDetail({
+  player,
+  categories = [],
+  tracks: allTracks = [],
+  isLoading = false,
+  error = "",
+}) {
+  const { t } = useLanguage();
+  const { categoryId } = useParams();
+  const baseCategory = categories.find((item) => item.id === categoryId);
 
   if (isLoading) {
     return (
       <section className="page-section category-detail-page">
-        <LoadingState title={t('common.waitingTitle')} description={t('common.waitingMusicDescription')} quiet />
+        <LoadingState
+          title={t("common.waitingTitle")}
+          description={t("common.waitingMusicDescription")}
+          quiet
+        />
       </section>
-    )
+    );
   }
 
   if (error) {
     return (
       <section className="page-section category-detail-page">
-        <LoadingState title={t('common.musicLoadErrorTitle')} description={error} variant="error" />
+        <LoadingState
+          title={t("common.musicLoadErrorTitle")}
+          description={error}
+          variant="error"
+        />
       </section>
-    )
+    );
   }
 
   if (!baseCategory) {
-    return <Navigate to="/category" replace />
+    return <Navigate to="/category" replace />;
   }
 
-  const category = localizeCategory(baseCategory, t)
-  const tracks = allTracks.filter((track) => track.category === category.id)
+  const category = localizeCategory(baseCategory, t);
+  const tracks = allTracks.filter((track) => track.category === category.id);
 
   return (
     <section className="page-section category-detail-page">
       <div className="category-detail-heading">
-        <Link className="category-detail-back" to="/category" aria-label={t('categoryPage.back')}>
+        <Link
+          className="category-detail-back"
+          to="/category"
+          aria-label={t("categoryPage.back")}
+        >
           <ArrowLeft size={19} weight="bold" />
         </Link>
 
         <div>
           <h2>{category.title}</h2>
-          <p>{category.description}</p>
         </div>
 
         <span className="category-detail-badge">
           <Sparkle size={17} weight="fill" />
-          {tracks.length} {t('common.songs')}
+          {tracks.length} {t("common.songs")}
         </span>
       </div>
 
-      <section className="category-detail-panel" aria-label={t('categoryPage.pageSongs', { name: category.title })}>
+      <section
+        className="category-detail-panel"
+        aria-label={t("categoryPage.pageSongs", { name: category.title })}
+      >
         <aside className="category-detail-cover-card" data-tone={category.tone}>
           <div className="category-detail-cover">
             <img src={category.cover} alt={category.title} />
             <button
               className="category-detail-play"
               type="button"
-              aria-label={t('categoryPage.playCategory', { name: category.title })}
+              aria-label={t("categoryPage.playCategory", {
+                name: category.title,
+              })}
               onClick={() => player?.playQueue(tracks, 0)}
             >
               <Play size={28} weight="fill" />
@@ -66,8 +93,6 @@ function CategoryDetail({ player, categories = [], tracks: allTracks = [], isLoa
 
           <div className="category-detail-copy">
             <span>{category.title}</span>
-            <strong>{category.description}</strong>
-            <small>{t('categoryPage.featured', { count: tracks.length })}</small>
           </div>
         </aside>
 
@@ -79,7 +104,9 @@ function CategoryDetail({ player, categories = [], tracks: allTracks = [], isLoa
               key={track.id}
               onClick={() => player?.playQueue(tracks, index)}
             >
-              <span className="category-track-index">{String(index + 1).padStart(2, '0')}</span>
+              <span className="category-track-index">
+                {String(index + 1).padStart(2, "0")}
+              </span>
 
               <span className="category-track-cover">
                 {track.cover ? (
@@ -103,7 +130,7 @@ function CategoryDetail({ player, categories = [], tracks: allTracks = [], isLoa
         </div>
       </section>
     </section>
-  )
+  );
 }
 
-export default CategoryDetail
+export default CategoryDetail;

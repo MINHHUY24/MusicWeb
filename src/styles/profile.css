@@ -183,7 +183,7 @@
     radial-gradient(circle at 86% 20%, rgb(91 234 207 / 0.08), transparent 36%);
 }
 
-/* NOTE: Profile music - tab yêu thích, lịch sử, nhạc đã up */
+/* NOTE: Profile music - tab yêu thích, lịch sử và nhạc đã up */
 .profile-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -296,7 +296,7 @@
 
 .profile-track-row {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr) minmax(110px, 180px) auto;
+  grid-template-columns: 68px minmax(0, 1fr) minmax(110px, 180px);
   align-items: center;
   gap: 14px;
   width: 100%;
@@ -315,7 +315,11 @@
 }
 
 .profile-track-row-uploaded {
-  grid-template-columns: 68px minmax(0, 1fr) minmax(110px, 180px) 40px auto;
+  grid-template-columns: 68px minmax(0, 1fr) minmax(110px, 180px) auto;
+}
+
+.profile-track-row-history {
+  grid-template-columns: 68px minmax(0, 1fr);
 }
 
 .profile-track-row:hover,
@@ -416,6 +420,14 @@
   font-weight: 800;
 }
 
+.profile-track-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+}
+
+.profile-track-edit,
 .profile-track-delete {
   display: grid;
   place-items: center;
@@ -435,6 +447,19 @@
     transform 0.2s ease;
 }
 
+.profile-track-edit {
+  color: rgb(196 226 255 / 0.9);
+  border-color: rgb(139 200 255 / 0.2);
+  background: rgb(139 200 255 / 0.1);
+}
+
+.profile-track-edit:hover,
+.profile-track-edit:focus-visible {
+  color: #ffffff;
+  border-color: rgb(185 220 255 / 0.38);
+  background: rgb(139 200 255 / 0.22);
+}
+
 .profile-track-delete:hover,
 .profile-track-delete:focus-visible {
   color: #ffffff;
@@ -442,11 +467,17 @@
   background: rgb(255 96 96 / 0.2);
 }
 
+.profile-track-edit:focus-visible,
 .profile-track-delete:focus-visible {
   outline: 2px solid rgb(255 210 210 / 0.72);
   outline-offset: 2px;
 }
 
+.profile-track-edit:focus-visible {
+  outline-color: rgb(185 220 255 / 0.76);
+}
+
+.profile-track-edit:disabled,
 .profile-track-delete:disabled {
   cursor: wait;
   opacity: 0.72;
@@ -540,7 +571,8 @@ body.profile-delete-dialog-active .player-bar {
 }
 
 .profile-delete-cancel,
-.profile-delete-confirm {
+.profile-delete-confirm,
+.profile-edit-confirm {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -548,6 +580,7 @@ body.profile-delete-dialog-active .player-bar {
   min-height: 44px;
   padding: 0 18px;
   font-weight: 850;
+  text-decoration: none;
   border-radius: 999px;
   cursor: pointer;
   transition:
@@ -568,8 +601,25 @@ body.profile-delete-dialog-active .player-bar {
   background: rgb(255 188 188 / 0.9);
 }
 
+.profile-edit-dialog {
+  border-color: rgb(185 220 255 / 0.24);
+}
+
+.profile-edit-dialog-icon {
+  color: rgb(196 226 255 / 0.96);
+  border-color: rgb(139 200 255 / 0.28);
+  background: rgb(139 200 255 / 0.13);
+}
+
+.profile-edit-confirm {
+  color: #06111f;
+  border: 1px solid rgb(205 232 255 / 0.5);
+  background: var(--accent-strong);
+}
+
 .profile-delete-cancel:hover,
-.profile-delete-confirm:hover {
+.profile-delete-confirm:hover,
+.profile-edit-confirm:hover {
   transform: translateY(-1px);
 }
 
@@ -647,11 +697,15 @@ body.profile-delete-dialog-active .player-bar {
   }
 
   .profile-track-row {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
+    grid-template-columns: 64px minmax(0, 1fr);
   }
 
   .profile-track-row-uploaded {
-    grid-template-columns: 64px minmax(0, 1fr) 38px auto;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+  }
+
+  .profile-track-row-history {
+    grid-template-columns: 64px minmax(0, 1fr);
   }
 
   .profile-track-meta {
@@ -712,7 +766,8 @@ body.profile-delete-dialog-active .player-bar {
   }
 
   .profile-delete-cancel,
-  .profile-delete-confirm {
+  .profile-delete-confirm,
+  .profile-edit-confirm {
     flex: 1;
   }
 }
@@ -738,7 +793,11 @@ body.profile-delete-dialog-active .player-bar {
   }
 
   .profile-track-row-uploaded {
-    grid-template-columns: 58px minmax(0, 1fr) 38px;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+  }
+
+  .profile-track-row-history {
+    grid-template-columns: 58px minmax(0, 1fr);
   }
 
   .profile-track-cover {
@@ -756,8 +815,10 @@ body.profile-delete-dialog-active .player-bar {
     grid-column: 2;
   }
 
-  .profile-track-delete {
+  .profile-track-actions {
     grid-column: 3;
     grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: end;
   }
 }

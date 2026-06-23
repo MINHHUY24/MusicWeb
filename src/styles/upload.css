@@ -7,7 +7,7 @@
   height: 100%;
   min-height: 0;
   padding-top: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .upload-page p:not(.page-kicker) {
@@ -59,16 +59,59 @@
 
 .upload-wizard {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
   gap: clamp(14px, 2.2vh, 22px);
   min-height: 0;
   height: 100%;
   padding: clamp(18px, 2.5vw, 30px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(139 200 255 / 0.35) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.upload-wizard:has(.upload-error),
+.upload-wizard:has(.upload-status) {
+  grid-template-rows: auto auto auto auto auto;
+}
+
+.upload-wizard::-webkit-scrollbar {
+  width: 8px;
+}
+
+.upload-wizard::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.upload-wizard::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(139 200 255 / 0.34);
+  background-clip: content-box;
+}
+
+.upload-wizard:not(.upload-wizard-has-audio) {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
   overflow: visible;
 }
 
-.upload-wizard:has(.upload-error) {
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+.upload-wizard:not(.upload-wizard-has-audio) .upload-stage-file {
+  height: 100%;
+  overflow: hidden;
+}
+
+.upload-wizard:not(.upload-wizard-has-audio) .upload-stage-copy {
+  align-content: center;
+  min-height: 100%;
+}
+
+.upload-wizard:not(.upload-wizard-has-audio) .upload-dropzone {
+  height: 100%;
+  /* min-height: clamp(360px, 52vh, 620px); */
 }
 
 /* NOTE: Upload wizard - thanh step */
@@ -166,9 +209,26 @@
   flex: 0 0 auto;
 }
 
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: rgb(232 244 255 / 0.82);
+  border: 1px solid rgb(139 200 255 / 0.22);
+  border-radius: 16px;
+  background: rgb(139 200 255 / 0.1);
+}
+
+.upload-status svg {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+}
+
 /* ==================== NOTE: Upload wizard - nội dung từng bước ==================== */
 .upload-stage {
-  height: 100%;
+  height: auto;
   min-width: 0;
   min-height: 0;
   overflow: visible;
@@ -179,16 +239,16 @@
   grid-template-columns: minmax(220px, 360px) minmax(0, 1fr);
   align-items: stretch;
   gap: clamp(18px, 3vw, 34px);
-  height: 100%;
-  overflow: hidden;
+  height: auto;
+  overflow: visible;
 }
 
 .upload-stage-copy {
   display: grid;
   align-content: center;
-  gap: 10px;
+  /* gap: 10px; */
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .upload-kicker {
@@ -258,9 +318,9 @@
 }
 
 .upload-dropzone {
-  height: 100%;
-  min-height: 0;
-  padding: 28px;
+  height: auto;
+  min-height: clamp(240px, 32vh, 340px);
+  padding: 70px;
   border-radius: 24px;
 }
 
@@ -362,9 +422,9 @@
 /* ==================== NOTE: Upload wizard - form thông tin track ==================== */
 .upload-stage-info {
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: 18px;
-  height: 100%;
+  height: auto;
 }
 
 .upload-info-grid {
@@ -822,6 +882,133 @@
   opacity: 0.62;
 }
 
+@media (max-height: 1100px) and (min-width: 981px) {
+  .upload-wizard-has-audio {
+    gap: 14px;
+    padding: clamp(18px, 2vw, 24px);
+  }
+
+  .upload-wizard-has-audio .upload-page-heading h2 {
+    font-size: clamp(26px, 2.4vw, 32px);
+  }
+
+  .upload-wizard-has-audio .upload-step {
+    min-height: 52px;
+    padding-block: 7px;
+  }
+
+  .upload-wizard-has-audio .upload-stage-copy {
+    align-content: start;
+  }
+
+  .upload-wizard-has-audio .upload-kicker {
+    font-size: 15px;
+  }
+
+  .upload-wizard-has-audio .upload-stage-copy h3,
+  .upload-wizard-has-audio .upload-stage-done h3 {
+    font-size: clamp(24px, 2.5vw, 34px);
+  }
+
+  .upload-wizard-has-audio .upload-dropzone {
+    min-height: clamp(220px, 28vh, 300px);
+    padding: 22px;
+  }
+
+  .upload-wizard-has-audio .upload-dropzone-icon {
+    width: 78px;
+    height: 78px;
+    margin-bottom: 12px;
+    border-radius: 22px;
+  }
+
+  .upload-wizard-has-audio .upload-audio-card,
+  .upload-wizard-has-audio .upload-file-summary {
+    padding: 10px 12px;
+  }
+
+  .upload-wizard-has-audio .upload-info-grid {
+    grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .upload-wizard-has-audio .upload-cover-dropzone {
+    max-height: 220px;
+    border-radius: 20px;
+  }
+
+  .upload-wizard-has-audio .upload-cover-button,
+  .upload-wizard-has-audio .upload-primary-button,
+  .upload-wizard-has-audio .upload-secondary-button {
+    min-height: 40px;
+  }
+
+  .upload-wizard-has-audio .upload-form-fields {
+    gap: 10px 12px;
+  }
+
+  .upload-wizard-has-audio .upload-field {
+    gap: 5px;
+  }
+
+  .upload-wizard-has-audio .upload-field input,
+  .upload-wizard-has-audio .upload-field select,
+  .upload-wizard-has-audio .upload-category-trigger {
+    height: 42px;
+  }
+
+  .upload-wizard-has-audio .upload-field textarea {
+    height: 78px;
+    min-height: 78px;
+    max-height: 78px;
+  }
+}
+
+@media (max-height: 860px), (max-width: 1180px) {
+  .upload-wizard-has-audio {
+    align-content: start;
+    grid-template-rows: auto auto auto auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  .upload-wizard-has-audio:has(.upload-error),
+  .upload-wizard-has-audio:has(.upload-status) {
+    grid-template-rows: auto auto auto auto auto;
+  }
+
+  .upload-wizard-has-audio .upload-stage,
+  .upload-wizard-has-audio .upload-stage-file,
+  .upload-wizard-has-audio .upload-stage-info,
+  .upload-wizard-has-audio .upload-stage-done {
+    height: auto;
+    min-height: 0;
+  }
+
+  .upload-wizard-has-audio .upload-stage-file {
+    overflow: visible;
+  }
+
+  .upload-wizard-has-audio .upload-stage-copy {
+    align-content: start;
+    min-height: 0;
+  }
+
+  .upload-wizard-has-audio .upload-stage-info {
+    align-content: start;
+  }
+
+  .upload-wizard-has-audio .upload-dropzone {
+    height: auto;
+    min-height: 260px;
+  }
+
+  .upload-wizard-has-audio .upload-cover-dropzone {
+    max-height: 260px;
+  }
+}
+
 @media (max-width: 980px) {
   .upload-stage-file {
     grid-template-columns: 1fr;
@@ -857,6 +1044,8 @@
 
   .upload-wizard {
     height: auto;
+    max-height: none;
+    overflow: visible;
     padding: 16px;
     border-radius: 24px;
   }

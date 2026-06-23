@@ -3,6 +3,7 @@ import {
   CircleNotch,
   Heart,
   MusicNotesSimple,
+  PencilSimpleLine,
   Play,
   Trash,
   UploadSimple,
@@ -54,6 +55,7 @@ function Profile({
   const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("favorites");
   const [deletingTrackId, setDeletingTrackId] = useState("");
+  const [pendingEditTrack, setPendingEditTrack] = useState(null);
   const [pendingDeleteTrack, setPendingDeleteTrack] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const favoriteRows = useMemo(
@@ -155,13 +157,13 @@ function Profile({
   useEffect(() => {
     document.body.classList.toggle(
       "profile-delete-dialog-active",
-      Boolean(pendingDeleteTrack),
+      Boolean(pendingDeleteTrack || pendingEditTrack),
     );
 
     return () => {
       document.body.classList.remove("profile-delete-dialog-active");
     };
-  }, [pendingDeleteTrack]);
+  }, [pendingDeleteTrack, pendingEditTrack]);
 
   function handleTrackKeyDown(event, track, index) {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -178,6 +180,19 @@ function Profile({
 
     setPendingDeleteTrack(track);
     setDeleteError("");
+  }
+
+  function openEditDialog(event, track) {
+    event.stopPropagation();
+
+    if (deletingTrackId) return;
+
+    setPendingEditTrack(track);
+    setDeleteError("");
+  }
+
+  function closeEditDialog() {
+    setPendingEditTrack(null);
   }
 
   function closeDeleteDialog() {
@@ -277,8 +292,9 @@ function Profile({
           />
         ) : error ? (
           <LoadingState
-            title={t("common.waitingTitle")}
-            description={t("common.waitingMusicDescription")}
+            title={t("common.musicLoadErrorTitle")}
+            description={error}
+            variant="error"
             quiet
           />
         ) : activeTracks.length ? (
@@ -289,9 +305,13 @@ function Profile({
             {activeTracks.map((track, index) => (
               <div
                 className={
-                  track.isUploaded
-                    ? "profile-track-row profile-track-row-uploaded"
-                    : "profile-track-row"
+                  [
+                    "profile-track-row",
+                    track.isUploaded ? "profile-track-row-uploaded" : "",
+                    activeTab === "history" ? "profile-track-row-history" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 }
                 role="button"
                 tabIndex={0}
@@ -315,32 +335,47 @@ function Profile({
                   <span>{track.artist}</span>
                 </span>
 
-                <span className="profile-track-meta">
-                  {track.metaKey
-                    ? t(track.metaKey)
-                    : t(
-                        `categories.${track.category}.title`,
-                        {},
-                        track.meta || "",
-                      )}
-                </span>
-                <span className="profile-track-duration">{track.duration}</span>
+                {activeTab === "history" ? null : (
+                  <span className="profile-track-meta">
+                    {track.metaKey
+                      ? t(track.metaKey)
+                      : t(
+                          `categories.${track.category}.title`,
+                          {},
+                          track.meta || "",
+                        )}
+                  </span>
+                )}
+                {/* <span className="profile-track-duration">{track.duration}</span> */}
                 {track.isUploaded ? (
-                  <button
-                    className="profile-track-delete"
-                    type="button"
-                    aria-label={t("profile.deleteTrack", {
-                      title: track.title,
-                    })}
-                    disabled={deletingTrackId === track.id}
-                    onClick={(event) => openDeleteDialog(event, track)}
-                  >
-                    {deletingTrackId === track.id ? (
-                      <CircleNotch size={18} weight="bold" />
-                    ) : (
-                      <Trash size={18} weight="bold" />
-                    )}
-                  </button>
+                  <span className="profile-track-actions">
+                    <button
+                      className="profile-track-edit"
+                      type="button"
+                      aria-label={t("profile.editTrack", {
+                        title: track.title,
+                      })}
+                      disabled={deletingTrackId === track.id}
+                      onClick={(event) => openEditDialog(event, track)}
+                    >
+                      <PencilSimpleLine size={18} weight="bold" />
+                    </button>
+                    <button
+                      className="profile-track-delete"
+                      type="button"
+                      aria-label={t("profile.deleteTrack", {
+                        title: track.title,
+                      })}
+                      disabled={deletingTrackId === track.id}
+                      onClick={(event) => openDeleteDialog(event, track)}
+                    >
+                      {deletingTrackId === track.id ? (
+                        <CircleNotch size={18} weight="bold" />
+                      ) : (
+                        <Trash size={18} weight="bold" />
+                      )}
+                    </button>
+                  </span>
                 ) : null}
               </div>
             ))}
@@ -356,6 +391,52 @@ function Profile({
           </div>
         )}
       </section>
+
+      {pendingEditTrack ? (
+        <div
+          className="profile-delete-dialog-backdrop"
+          role="presentation"
+          onMouseDown={closeEditDialog}
+        >
+          <section
+            className="profile-delete-dialog profile-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-edit-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="profile-delete-dialog-icon profile-edit-dialog-icon">
+              <PencilSimpleLine size={28} weight="bold" />
+            </div>
+
+            <div className="profile-delete-dialog-copy">
+              <h3 id="profile-edit-title">{t("profile.editTrackTitle")}</h3>
+              <p>
+                {t("profile.editTrackConfirm", {
+                  title: pendingEditTrack.title,
+                })}
+              </p>
+            </div>
+
+            <div className="profile-delete-dialog-actions">
+              <button
+                className="profile-delete-cancel"
+                type="button"
+                onClick={closeEditDialog}
+              >
+                {t("common.cancel")}
+              </button>
+              <Link
+                className="profile-edit-confirm"
+                to={`/upload?edit=${encodeURIComponent(pendingEditTrack.id)}`}
+              >
+                <PencilSimpleLine size={18} weight="bold" />
+                {t("profile.editTrackAction")}
+              </Link>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {pendingDeleteTrack ? (
         <div
