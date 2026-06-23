@@ -1049,7 +1049,7 @@ body .page-section.page-loading-page > .loading-state {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #ffffff;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
 }
 
