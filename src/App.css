@@ -838,7 +838,7 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0 22px 120px 0;
+  padding: 0 22px 0 0;
   scrollbar-color: rgb(139 200 255 / 0.35) transparent;
   scrollbar-width: thin;
 }
@@ -920,7 +920,7 @@ body .page-section.page-loading-page > .loading-state {
   gap: 32px;
   width: 100%;
   margin-top: 0;
-  padding-bottom: 10px;
+  padding-bottom: 0;
 }
 
 /* NOTE: Home page - từng lane cuộn ngang */
@@ -965,7 +965,7 @@ body .page-section.page-loading-page > .loading-state {
   min-width: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 2px 8px 14px 0;
+  padding: 2px 8px 0 0;
   scroll-padding-inline: 2px;
   scrollbar-color: rgb(139 200 255 / 0.42) transparent;
   scrollbar-width: thin;
@@ -977,7 +977,7 @@ body .page-section.page-loading-page > .loading-state {
   grid-auto-columns: unset;
   overflow-x: hidden;
   overflow-y: visible;
-  padding-bottom: 6px;
+  padding-bottom: 0;
 }
 
 .lane-scroll::-webkit-scrollbar {

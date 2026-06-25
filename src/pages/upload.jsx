@@ -118,6 +118,7 @@ function Upload({ auth }) {
   const uploadWizardClassName = [
     "upload-wizard",
     hasAudioSelection ? "upload-wizard-has-audio" : "",
+    isCategoryPickerOpen ? "upload-wizard-category-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -738,7 +739,11 @@ function Upload({ auth }) {
                     </button>
 
                     {isCategoryPickerOpen ? (
-                      <div className="upload-category-menu">
+                      <div
+                        className="upload-category-menu"
+                        onWheel={(event) => event.stopPropagation()}
+                        onTouchMove={(event) => event.stopPropagation()}
+                      >
                         <label className="upload-category-search">
                           <MagnifyingGlass size={17} weight="bold" />
                           <input

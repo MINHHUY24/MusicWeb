@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import CardPlaylist from "../components/card_playlist.jsx";
 import LoadingState from "../components/loading_state.jsx";
 import {
+  buildCustomPlaylists,
   buildPlaylists,
   mapAvailableSongs,
   toneOptions,
@@ -36,20 +37,44 @@ function normalizeSearchText(value) {
     .replace(/đ/g, "d");
 }
 
-function Playlist({ tracks = [], isLoading = false, error = "" }) {
+function Playlist({
+  tracks = [],
+  customPlaylists = [],
+  customPlaylistsError = "",
+  isLoading = false,
+  error = "",
+  onCreatePlaylist,
+  onUpdatePlaylist,
+  onDeletePlaylist,
+}) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const [customPlaylists, setCustomPlaylists] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isToneMenuOpen, setIsToneMenuOpen] = useState(false);
   const [songSearch, setSongSearch] = useState("");
   const [form, setForm] = useState(initialForm);
+  const [submitError, setSubmitError] = useState("");
+  const [isSavingPlaylist, setIsSavingPlaylist] = useState(false);
+  const [dialogMode, setDialogMode] = useState("create");
+  const [editingPlaylist, setEditingPlaylist] = useState(null);
+  const [activePlaylistMenuId, setActivePlaylistMenuId] = useState("");
+  const [playlistToDelete, setPlaylistToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeletingPlaylist, setIsDeletingPlaylist] = useState(false);
 
   const availableSongs = useMemo(() => mapAvailableSongs(tracks), [tracks]);
   const defaultPlaylists = useMemo(() => buildPlaylists(tracks), [tracks]);
+  const savedCustomPlaylists = useMemo(
+    () => buildCustomPlaylists(customPlaylists, tracks),
+    [customPlaylists, tracks],
+  );
+  const editablePlaylistIds = useMemo(
+    () => new Set(savedCustomPlaylists.map((playlist) => playlist.id)),
+    [savedCustomPlaylists],
+  );
   const playlists = useMemo(
-    () => [...customPlaylists, ...defaultPlaylists],
-    [customPlaylists, defaultPlaylists],
+    () => [...savedCustomPlaylists, ...defaultPlaylists],
+    [savedCustomPlaylists, defaultPlaylists],
   );
 
   const selectedSongs = useMemo(
@@ -88,9 +113,11 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
   }, [availableSongs, songSearch]);
 
   useEffect(() => {
-    document.body.classList.toggle("playlist-dialog-active", isDialogOpen);
+    const hasModalOpen = isDialogOpen || Boolean(playlistToDelete);
 
-    if (!isDialogOpen) {
+    document.body.classList.toggle("playlist-dialog-active", hasModalOpen);
+
+    if (!hasModalOpen) {
       return () => {
         document.body.classList.remove("playlist-dialog-active");
       };
@@ -99,10 +126,21 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
     function handleDialogKeyDown(event) {
       if (event.key !== "Escape") return;
 
-      setIsDialogOpen(false);
-      setIsToneMenuOpen(false);
-      setSongSearch("");
-      setForm(initialForm);
+      if (isDialogOpen) {
+        setIsDialogOpen(false);
+        setIsToneMenuOpen(false);
+        setSongSearch("");
+        setForm(initialForm);
+        setSubmitError("");
+        setIsSavingPlaylist(false);
+        setDialogMode("create");
+        setEditingPlaylist(null);
+        return;
+      }
+
+      setPlaylistToDelete(null);
+      setDeleteError("");
+      setIsDeletingPlaylist(false);
     }
 
     window.addEventListener("keydown", handleDialogKeyDown);
@@ -111,9 +149,36 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
       document.body.classList.remove("playlist-dialog-active");
       window.removeEventListener("keydown", handleDialogKeyDown);
     };
-  }, [isDialogOpen]);
+  }, [isDialogOpen, playlistToDelete]);
+
+  useEffect(() => {
+    if (!activePlaylistMenuId) return undefined;
+
+    function closeActiveMenu() {
+      setActivePlaylistMenuId("");
+    }
+
+    function handleMenuKeyDown(event) {
+      if (event.key === "Escape") {
+        closeActiveMenu();
+      }
+    }
+
+    window.addEventListener("click", closeActiveMenu);
+    window.addEventListener("keydown", handleMenuKeyDown);
+
+    return () => {
+      window.removeEventListener("click", closeActiveMenu);
+      window.removeEventListener("keydown", handleMenuKeyDown);
+    };
+  }, [activePlaylistMenuId]);
 
   function openCreateDialog() {
+    setDialogMode("create");
+    setEditingPlaylist(null);
+    setForm(initialForm);
+    setSubmitError("");
+    setActivePlaylistMenuId("");
     setIsDialogOpen(true);
   }
 
@@ -122,6 +187,39 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
     setIsToneMenuOpen(false);
     setSongSearch("");
     setForm(initialForm);
+    setSubmitError("");
+    setIsSavingPlaylist(false);
+    setDialogMode("create");
+    setEditingPlaylist(null);
+  }
+
+  function openEditDialog(playlist) {
+    setDialogMode("edit");
+    setEditingPlaylist(playlist);
+    setActivePlaylistMenuId("");
+    setSubmitError("");
+    setSongSearch("");
+    setForm({
+      name: playlist.title || "",
+      description: playlist.description || "",
+      cover: playlist.cover || "",
+      coverName: "",
+      tone: playlist.tone || "blue",
+      songIds: playlist.trackIds ?? [],
+    });
+    setIsDialogOpen(true);
+  }
+
+  function openDeleteDialog(playlist) {
+    setPlaylistToDelete(playlist);
+    setActivePlaylistMenuId("");
+    setDeleteError("");
+  }
+
+  function closeDeleteDialog() {
+    setPlaylistToDelete(null);
+    setDeleteError("");
+    setIsDeletingPlaylist(false);
   }
 
   function updateForm(field, value) {
@@ -162,30 +260,74 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
     });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const playlistName = form.name.trim();
 
     if (!playlistName) return;
 
-    const newPlaylist = {
-      id: `playlist-${Date.now()}`,
-      title: playlistName,
-      description:
-        form.description.trim() || t("playlistPage.defaultDescription"),
-      songCount: selectedSongs.length,
-      durationMinutes: totalDuration,
-      duration: formatMinutes(totalDuration, language),
-      tone: form.tone,
-      cover: form.cover,
-    };
+    setSubmitError("");
+    setIsSavingPlaylist(true);
 
-    setCustomPlaylists((currentPlaylists) => [
-      newPlaylist,
-      ...currentPlaylists,
-    ]);
-    closeCreateDialog();
+    try {
+      const playlistPayload = {
+        title: playlistName,
+        description:
+          form.description.trim() || t("playlistPage.defaultDescription"),
+        tone: form.tone,
+        cover: form.cover,
+        trackIds: form.songIds,
+      };
+
+      if (dialogMode === "edit") {
+        if (!editingPlaylist || !onUpdatePlaylist) {
+          throw new Error(t("playlistPage.updateError"));
+        }
+
+        await onUpdatePlaylist(editingPlaylist.id, playlistPayload);
+      } else {
+        if (!onCreatePlaylist) {
+          throw new Error(t("playlistPage.saveError"));
+        }
+
+        await onCreatePlaylist(playlistPayload);
+      }
+
+      closeCreateDialog();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : dialogMode === "edit"
+            ? t("playlistPage.updateError")
+            : t("playlistPage.saveError"),
+      );
+    } finally {
+      setIsSavingPlaylist(false);
+    }
+  }
+
+  async function handleDeletePlaylist() {
+    if (!playlistToDelete) return;
+
+    setDeleteError("");
+    setIsDeletingPlaylist(true);
+
+    try {
+      if (!onDeletePlaylist) {
+        throw new Error(t("playlistPage.deleteError"));
+      }
+
+      await onDeletePlaylist(playlistToDelete.id);
+      closeDeleteDialog();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : t("playlistPage.deleteError"),
+      );
+    } finally {
+      setIsDeletingPlaylist(false);
+    }
   }
 
   if (isLoading) {
@@ -219,6 +361,9 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
         <div className="playlist-panel-heading">
           <div>
             <h2>{t("playlistPage.title")}</h2>
+            {customPlaylistsError ? (
+              <p className="playlist-panel-error">{customPlaylistsError}</p>
+            ) : null}
           </div>
 
           <span className="playlist-panel-badge">
@@ -240,6 +385,7 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
             const playlistDuration = Number.isFinite(playlist.durationMinutes)
               ? formatMinutes(playlist.durationMinutes, language)
               : playlist.duration;
+            const canManagePlaylist = editablePlaylistIds.has(playlist.id);
 
             return (
               <CardPlaylist
@@ -251,6 +397,23 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
                 duration={playlistDuration}
                 tone={playlist.tone}
                 onClick={() => navigate(`/playlist/${playlist.id}`)}
+                isMenuOpen={activePlaylistMenuId === playlist.id}
+                onMenuToggle={
+                  canManagePlaylist
+                    ? () =>
+                        setActivePlaylistMenuId((currentPlaylistId) =>
+                          currentPlaylistId === playlist.id ? "" : playlist.id,
+                        )
+                    : undefined
+                }
+                onEdit={
+                  canManagePlaylist ? () => openEditDialog(playlist) : undefined
+                }
+                onDelete={
+                  canManagePlaylist
+                    ? () => openDeleteDialog(playlist)
+                    : undefined
+                }
               />
             );
           })}
@@ -269,7 +432,9 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
             <div className="playlist-dialog-heading">
               <div>
                 <h2 id="playlist-dialog-title">
-                  {t("playlistPage.newDialogTitle")}
+                  {dialogMode === "edit"
+                    ? t("playlistPage.editDialogTitle")
+                    : t("playlistPage.newDialogTitle")}
                 </h2>
               </div>
 
@@ -480,18 +645,79 @@ function Playlist({ tracks = [], isLoading = false, error = "" }) {
               </div>
 
               <div className="playlist-dialog-actions">
+                {submitError ? (
+                  <p className="playlist-form-error">{submitError}</p>
+                ) : null}
                 <button
                   className="playlist-secondary-button"
                   type="button"
                   onClick={closeCreateDialog}
+                  disabled={isSavingPlaylist}
                 >
                   {t("common.cancel")}
                 </button>
-                <button className="playlist-primary-button" type="submit">
-                  {t("playlistPage.save")}
+                <button
+                  className="playlist-primary-button"
+                  type="submit"
+                  disabled={isSavingPlaylist}
+                >
+                  {isSavingPlaylist
+                    ? dialogMode === "edit"
+                      ? t("playlistPage.updating")
+                      : t("playlistPage.saving")
+                    : dialogMode === "edit"
+                      ? t("playlistPage.update")
+                      : t("playlistPage.save")}
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      ) : null}
+
+      {playlistToDelete ? (
+        <div className="playlist-dialog-backdrop" role="presentation">
+          <section
+            className="playlist-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="playlist-delete-title"
+          >
+            <div>
+              <h2 id="playlist-delete-title">
+                {t("playlistPage.deleteDialogTitle")}
+              </h2>
+              <p>
+                {t("playlistPage.deleteDialogDescription", {
+                  name: playlistToDelete.title,
+                })}
+              </p>
+            </div>
+
+            {deleteError ? (
+              <p className="playlist-form-error">{deleteError}</p>
+            ) : null}
+
+            <div className="playlist-dialog-actions">
+              <button
+                className="playlist-secondary-button"
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={isDeletingPlaylist}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="playlist-danger-button"
+                type="button"
+                onClick={handleDeletePlaylist}
+                disabled={isDeletingPlaylist}
+              >
+                {isDeletingPlaylist
+                  ? t("playlistPage.deleting")
+                  : t("playlistPage.confirmDelete")}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}

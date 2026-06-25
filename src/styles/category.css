@@ -59,7 +59,8 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 2px 8px 18px 0;
+  padding: 2px 8px 0 0;
+  scroll-padding-bottom: 0;
   scrollbar-color: rgb(139 200 255 / 0.42) transparent;
   scrollbar-width: thin;
 }

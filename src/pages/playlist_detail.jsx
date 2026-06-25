@@ -6,20 +6,31 @@ import {
 } from "@phosphor-icons/react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import LoadingState from "../components/loading_state.jsx";
-import { buildPlaylistTracks, buildPlaylists } from "../datas/playlistData.js";
+import {
+  buildCustomPlaylistTracks,
+  buildCustomPlaylists,
+  buildPlaylistTracks,
+  buildPlaylists,
+} from "../datas/playlistData.js";
 import { formatMinutes, localizePlaylist, useLanguage } from "../i18n.jsx";
 import "../styles/playlist_detail.css";
 
 function PlaylistDetail({
   player,
   tracks: allTracks = [],
+  customPlaylists = [],
   isLoading = false,
   error = "",
 }) {
   const { language, t } = useLanguage();
   const { playlistId } = useParams();
-  const playlists = buildPlaylists(allTracks);
-  const tracksByPlaylist = buildPlaylistTracks(allTracks);
+  const defaultPlaylists = buildPlaylists(allTracks);
+  const savedCustomPlaylists = buildCustomPlaylists(customPlaylists, allTracks);
+  const playlists = [...savedCustomPlaylists, ...defaultPlaylists];
+  const tracksByPlaylist = {
+    ...buildPlaylistTracks(allTracks),
+    ...buildCustomPlaylistTracks(savedCustomPlaylists, allTracks),
+  };
   const basePlaylist = playlists.find((item) => item.id === playlistId);
 
   if (isLoading) {

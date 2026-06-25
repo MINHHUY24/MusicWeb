@@ -72,6 +72,39 @@ export function buildPlaylistTracks(tracks = []) {
   );
 }
 
+export function buildCustomPlaylists(playlists = [], tracks = []) {
+  const trackById = new Map(tracks.map((track) => [track.id, track]));
+
+  return playlists.map((playlist) => {
+    const playlistTracks = (playlist.trackIds ?? [])
+      .map((trackId) => trackById.get(trackId))
+      .filter(Boolean);
+    const durationMinutes = sumMinutes(playlistTracks);
+
+    return {
+      ...playlist,
+      songCount: playlistTracks.length,
+      durationMinutes,
+      duration: formatPlaylistDuration(durationMinutes),
+      cover:
+        playlist.cover || playlistTracks.find((song) => song.cover)?.cover || "",
+    };
+  });
+}
+
+export function buildCustomPlaylistTracks(playlists = [], tracks = []) {
+  const trackById = new Map(tracks.map((track) => [track.id, track]));
+
+  return Object.fromEntries(
+    playlists.map((playlist) => [
+      playlist.id,
+      (playlist.trackIds ?? [])
+        .map((trackId) => trackById.get(trackId))
+        .filter(Boolean),
+    ]),
+  );
+}
+
 export function mapAvailableSongs(tracks = []) {
   return tracks.map((song) => ({
     id: song.id,

@@ -7,6 +7,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const AUDIO_BUCKET = process.env.SUPABASE_AUDIO_BUCKET || "track-audio";
 const COVER_BUCKET = process.env.SUPABASE_COVER_BUCKET || "track-covers";
+const PLAYLIST_SCHEMA_SETUP_MESSAGE =
+  "Chưa có bảng playlists/playlist_tracks trong Supabase. Hãy chạy SQL trong supabase-auth-setup.sql rồi thử lại.";
+const PLAYLIST_TONES = new Set(["blue", "mint", "rose", "amber"]);
 
 function requireSupabaseConfig() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -188,7 +191,13 @@ async function supabaseFetch(path, options = {}) {
     return null;
   }
 
-  return response.json();
+  const responseText = await response.text();
+
+  if (!responseText) {
+    return null;
+  }
+
+  return JSON.parse(responseText);
 }
 
 function getMissingSchemaColumn(error) {
@@ -222,6 +231,26 @@ function getIsEmbeddedResourceError(error) {
   } catch {
     return errorMessage.includes("PGRST200") || errorMessage.includes("relationship") || errorMessage.includes("embed");
   }
+}
+
+function getIsMissingPlaylistSchemaError(error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  let message = errorMessage;
+
+  try {
+    const payload = JSON.parse(errorMessage);
+    message = `${payload?.message || ""} ${payload?.details || ""} ${payload?.hint || ""}`;
+  } catch {
+    // Keep the original message.
+  }
+
+  return (
+    (message.includes("playlists") || message.includes("playlist_tracks")) &&
+    (message.includes("schema cache") ||
+      message.includes("relation") ||
+      message.includes("does not exist") ||
+      message.includes("Could not find the table"))
+  );
 }
 
 async function uploadStorageObject(bucket, objectPath, file) {
@@ -295,6 +324,19 @@ function normalizeCategory(row, tracks) {
     tone: row.tone || "blue",
     songCount: categoryTracks.length,
     cover: categoryTracks.find((track) => track.cover)?.cover || "",
+  };
+}
+
+function normalizePlaylist(row, trackIds = []) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || "",
+    tone: row.tone || "blue",
+    cover: row.cover_url || "",
+    trackIds,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -478,6 +520,260 @@ async function handleGetCurrentUserTracks(request, response) {
   });
 
   sendJson(response, 200, { tracks });
+}
+
+function normalizeTrackIds(trackIds) {
+  if (!Array.isArray(trackIds)) return [];
+
+  const seenTrackIds = new Set();
+
+  return trackIds
+    .map((trackId) => String(trackId || "").trim())
+    .filter((trackId) => {
+      if (!trackId || seenTrackIds.has(trackId)) return false;
+
+      seenTrackIds.add(trackId);
+      return true;
+    });
+}
+
+async function getPlaylistTrackIds(playlistIds) {
+  if (!playlistIds.length) return new Map();
+
+  const query = new URLSearchParams({
+    select: "playlist_id,track_id,position",
+    playlist_id: `in.(${playlistIds.join(",")})`,
+    order: "position.asc",
+  });
+  const rows = await supabaseFetch(`/rest/v1/playlist_tracks?${query.toString()}`);
+  const trackIdsByPlaylist = new Map();
+
+  rows.forEach((row) => {
+    const currentTrackIds = trackIdsByPlaylist.get(row.playlist_id) ?? [];
+
+    currentTrackIds.push(row.track_id);
+    trackIdsByPlaylist.set(row.playlist_id, currentTrackIds);
+  });
+
+  return trackIdsByPlaylist;
+}
+
+async function getCurrentUserPlaylists(userId) {
+  const query = new URLSearchParams({
+    select: "*",
+    user_id: `eq.${userId}`,
+    order: "created_at.desc",
+  });
+  const playlistRows = await supabaseFetch(`/rest/v1/playlists?${query.toString()}`);
+  const playlistIds = playlistRows.map((playlist) => playlist.id);
+  const trackIdsByPlaylist = await getPlaylistTrackIds(playlistIds);
+
+  return playlistRows.map((playlist) =>
+    normalizePlaylist(playlist, trackIdsByPlaylist.get(playlist.id) ?? []),
+  );
+}
+
+async function handleGetCurrentUserPlaylists(request, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  try {
+    const playlists = await getCurrentUserPlaylists(user.id);
+
+    sendJson(response, 200, { playlists });
+  } catch (error) {
+    if (getIsMissingPlaylistSchemaError(error)) {
+      sendJson(response, 200, {
+        playlists: [],
+        setupRequired: true,
+        warning: PLAYLIST_SCHEMA_SETUP_MESSAGE,
+      });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function insertPlaylistTrackRows(playlistId, trackIds) {
+  if (!trackIds.length) return;
+
+  const rows = trackIds.map((trackId, index) => ({
+    playlist_id: playlistId,
+    track_id: trackId,
+    position: index,
+  }));
+
+  await supabaseFetch("/rest/v1/playlist_tracks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(rows),
+  });
+}
+
+async function deletePlaylistTrackRows(playlistId) {
+  const query = new URLSearchParams({
+    playlist_id: `eq.${playlistId}`,
+  });
+
+  await supabaseFetch(`/rest/v1/playlist_tracks?${query.toString()}`, {
+    method: "DELETE",
+  });
+}
+
+async function getOwnedPlaylist(playlistId, userId) {
+  const query = new URLSearchParams({
+    select: "*",
+    id: `eq.${playlistId}`,
+    user_id: `eq.${userId}`,
+  });
+  const rows = await supabaseFetch(`/rest/v1/playlists?${query.toString()}`);
+
+  return rows[0] ?? null;
+}
+
+async function handleCreatePlaylist(request, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  try {
+    const body = await collectRequestBody(request);
+    const playlist = JSON.parse(body.toString("utf8") || "{}");
+    const title = String(playlist.title || "").trim();
+
+    if (!title) {
+      sendJson(response, 400, { error: "Missing playlist title." });
+      return;
+    }
+
+    const trackIds = normalizeTrackIds(playlist.trackIds);
+    const insertPayload = {
+      user_id: user.id,
+      title,
+      description: String(playlist.description || "").trim(),
+      tone: PLAYLIST_TONES.has(playlist.tone) ? playlist.tone : "blue",
+      cover_url: playlist.cover || null,
+    };
+    const playlistRows = await supabaseFetch("/rest/v1/playlists?select=*", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(insertPayload),
+    });
+    const createdPlaylist = playlistRows[0];
+
+    await insertPlaylistTrackRows(createdPlaylist.id, trackIds);
+
+    sendJson(response, 201, {
+      playlist: normalizePlaylist(createdPlaylist, trackIds),
+    });
+  } catch (error) {
+    if (getIsMissingPlaylistSchemaError(error)) {
+      sendJson(response, 500, { error: PLAYLIST_SCHEMA_SETUP_MESSAGE });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function handleUpdatePlaylist(request, playlistId, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  try {
+    const existingPlaylist = await getOwnedPlaylist(playlistId, user.id);
+
+    if (!existingPlaylist) {
+      sendJson(response, 404, { error: "Playlist not found." });
+      return;
+    }
+
+    const body = await collectRequestBody(request);
+    const playlist = JSON.parse(body.toString("utf8") || "{}");
+    const title = String(playlist.title || "").trim();
+
+    if (!title) {
+      sendJson(response, 400, { error: "Missing playlist title." });
+      return;
+    }
+
+    const trackIds = normalizeTrackIds(playlist.trackIds);
+    const updatePayload = {
+      title,
+      description: String(playlist.description || "").trim(),
+      tone: PLAYLIST_TONES.has(playlist.tone) ? playlist.tone : "blue",
+      cover_url: playlist.cover || null,
+    };
+    const query = new URLSearchParams({
+      id: `eq.${playlistId}`,
+      user_id: `eq.${user.id}`,
+      select: "*",
+    });
+    const playlistRows = await supabaseFetch(`/rest/v1/playlists?${query.toString()}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(updatePayload),
+    });
+    const updatedPlaylist = playlistRows[0];
+
+    await deletePlaylistTrackRows(playlistId);
+    await insertPlaylistTrackRows(playlistId, trackIds);
+
+    sendJson(response, 200, {
+      playlist: normalizePlaylist(updatedPlaylist, trackIds),
+    });
+  } catch (error) {
+    if (getIsMissingPlaylistSchemaError(error)) {
+      sendJson(response, 500, { error: PLAYLIST_SCHEMA_SETUP_MESSAGE });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function handleDeletePlaylist(request, playlistId, response) {
+  const user = await requireAuthenticatedUser(request, response);
+
+  if (!user) return;
+
+  try {
+    const existingPlaylist = await getOwnedPlaylist(playlistId, user.id);
+
+    if (!existingPlaylist) {
+      sendJson(response, 404, { error: "Playlist not found." });
+      return;
+    }
+
+    const query = new URLSearchParams({
+      id: `eq.${playlistId}`,
+      user_id: `eq.${user.id}`,
+    });
+
+    await supabaseFetch(`/rest/v1/playlists?${query.toString()}`, {
+      method: "DELETE",
+    });
+    sendNoContent(response);
+  } catch (error) {
+    if (getIsMissingPlaylistSchemaError(error)) {
+      sendJson(response, 500, { error: PLAYLIST_SCHEMA_SETUP_MESSAGE });
+      return;
+    }
+
+    throw error;
+  }
 }
 
 async function handleCreateTrack(request, response) {
@@ -693,6 +989,28 @@ async function handleRequest(request, response) {
 
     if (request.method === "GET" && url.pathname === "/api/me/tracks") {
       await handleGetCurrentUserTracks(request, response);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/me/playlists") {
+      await handleGetCurrentUserPlaylists(request, response);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/playlists") {
+      await handleCreatePlaylist(request, response);
+      return;
+    }
+
+    const playlistId = url.pathname.match(/^\/api\/playlists\/([^/]+)$/)?.[1];
+
+    if (request.method === "PATCH" && playlistId) {
+      await handleUpdatePlaylist(request, decodeURIComponent(playlistId), response);
+      return;
+    }
+
+    if (request.method === "DELETE" && playlistId) {
+      await handleDeletePlaylist(request, decodeURIComponent(playlistId), response);
       return;
     }
 

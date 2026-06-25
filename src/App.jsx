@@ -5,6 +5,12 @@ import AuthGate from './components/auth_gate.jsx'
 import Footer from './components/footer.jsx'
 import Sidebar from './components/sidebar.jsx'
 import Topbar from './components/topbar.jsx'
+import {
+  createStoredPlaylist,
+  deleteStoredPlaylist,
+  getStoredPlaylists,
+  updateStoredPlaylist,
+} from './datas/playlistStorage.js'
 import { getSupabaseClient } from './lib/supabaseClient.js'
 import Category from './pages/category.jsx'
 import CategoryDetail from './pages/category_detail.jsx'
@@ -79,6 +85,8 @@ function App() {
   const [musicCategories, setMusicCategories] = useState([])
   const [uploadedTracks, setUploadedTracks] = useState([])
   const [uploadedTracksLoadError, setUploadedTracksLoadError] = useState('')
+  const [customPlaylists, setCustomPlaylists] = useState([])
+  const [customPlaylistsLoadError, setCustomPlaylistsLoadError] = useState('')
   const [playerQueue, setPlayerQueue] = useState([])
   const [isMusicLoading, setIsMusicLoading] = useState(true)
   const [musicLoadError, setMusicLoadError] = useState('')
@@ -187,6 +195,7 @@ function App() {
       setIsMusicLoading(true)
       setMusicLoadError('')
       setUploadedTracksLoadError('')
+      setCustomPlaylistsLoadError('')
       let didLoadMusic = false
       const authHeaders = authSession?.access_token
         ? { Authorization: `Bearer ${authSession.access_token}` }
@@ -216,6 +225,8 @@ function App() {
         const categories = categoriesPayload.categories ?? []
         let nextUploadedTracks = []
         let nextUploadedTracksLoadError = ''
+        let nextCustomPlaylists = []
+        let nextCustomPlaylistsLoadError = ''
 
         if (authSession?.access_token) {
           try {
@@ -238,6 +249,16 @@ function App() {
             nextUploadedTracksLoadError =
               error instanceof Error ? error.message : 'Không thể tải nhạc đã upload của tài khoản.'
           }
+
+          try {
+            const playlistPayload = await getStoredPlaylists(authSession.access_token)
+
+            nextCustomPlaylists = playlistPayload.playlists
+            nextCustomPlaylistsLoadError = playlistPayload.warning
+          } catch (error) {
+            nextCustomPlaylistsLoadError =
+              error instanceof Error ? error.message : 'Không thể tải danh sách phát của tài khoản.'
+          }
         }
 
         if (!isMounted) return
@@ -247,6 +268,8 @@ function App() {
 
         setUploadedTracks(nextUploadedTracks)
         setUploadedTracksLoadError(nextUploadedTracksLoadError)
+        setCustomPlaylists(nextCustomPlaylists)
+        setCustomPlaylistsLoadError(nextCustomPlaylistsLoadError)
         setMusicLibrary(tracks)
         setMusicCategories(nextCategories)
         didLoadMusic = true
@@ -269,6 +292,8 @@ function App() {
 
         setUploadedTracks([])
         setUploadedTracksLoadError('')
+        setCustomPlaylists([])
+        setCustomPlaylistsLoadError('')
         setMusicLibrary([])
         setMusicCategories([])
         setPlayerQueue([])
@@ -361,6 +386,51 @@ function App() {
     }
 
     setAuthUser(data.user)
+  }
+
+  async function createPlaylist(playlist) {
+    if (!authSession?.access_token) {
+      throw new Error('Bạn cần đăng nhập Google để lưu danh sách phát.')
+    }
+
+    const createdPlaylist = await createStoredPlaylist(playlist, authSession.access_token)
+
+    setCustomPlaylists((currentPlaylists) => [
+      createdPlaylist,
+      ...currentPlaylists.filter((currentPlaylist) => currentPlaylist.id !== createdPlaylist.id),
+    ])
+    setCustomPlaylistsLoadError('')
+
+    return createdPlaylist
+  }
+
+  async function updatePlaylist(playlistId, playlist) {
+    if (!authSession?.access_token) {
+      throw new Error('Bạn cần đăng nhập Google để cập nhật danh sách phát.')
+    }
+
+    const updatedPlaylist = await updateStoredPlaylist(playlistId, playlist, authSession.access_token)
+
+    setCustomPlaylists((currentPlaylists) =>
+      currentPlaylists.map((currentPlaylist) =>
+        currentPlaylist.id === updatedPlaylist.id ? updatedPlaylist : currentPlaylist,
+      ),
+    )
+    setCustomPlaylistsLoadError('')
+
+    return updatedPlaylist
+  }
+
+  async function deletePlaylist(playlistId) {
+    if (!authSession?.access_token) {
+      throw new Error('Bạn cần đăng nhập Google để xóa danh sách phát.')
+    }
+
+    await deleteStoredPlaylist(playlistId, authSession.access_token)
+    setCustomPlaylists((currentPlaylists) =>
+      currentPlaylists.filter((currentPlaylist) => currentPlaylist.id !== playlistId),
+    )
+    setCustomPlaylistsLoadError('')
   }
 
   const appClassName = [
@@ -595,8 +665,13 @@ function App() {
                 <AuthGate auth={auth}>
                   <Playlist
                     tracks={musicLibrary}
+                    customPlaylists={customPlaylists}
+                    customPlaylistsError={customPlaylistsLoadError}
                     isLoading={isMusicLoading}
                     error={musicLoadError}
+                    onCreatePlaylist={createPlaylist}
+                    onUpdatePlaylist={updatePlaylist}
+                    onDeletePlaylist={deletePlaylist}
                   />
                 </AuthGate>
               }
@@ -608,6 +683,7 @@ function App() {
                   <PlaylistDetail
                     player={player}
                     tracks={musicLibrary}
+                    customPlaylists={customPlaylists}
                     isLoading={isMusicLoading}
                     error={musicLoadError}
                   />

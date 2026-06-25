@@ -617,6 +617,151 @@ body.profile-delete-dialog-active .player-bar {
   background: var(--accent-strong);
 }
 
+.profile-track-edit-backdrop {
+  align-items: center;
+  overflow-y: auto;
+}
+
+.profile-track-edit-dialog {
+  display: grid;
+  gap: 16px;
+  width: min(1120px, calc(100vw - 44px));
+  max-height: calc(100dvh - 44px);
+  padding: clamp(18px, 2.4vw, 28px);
+  color: #f8fbff;
+  border: 1px solid rgb(185 220 255 / 0.24);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(96 174 255 / 0.2), transparent 34%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.035)),
+    rgb(5 17 28 / 0.96);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 28px 76px rgb(0 0 0 / 0.48);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(139 200 255 / 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+.profile-track-edit-dialog::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-track-edit-dialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.profile-track-edit-dialog::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(139 200 255 / 0.34);
+  background-clip: content-box;
+}
+
+.profile-track-edit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.profile-track-edit-header span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.profile-track-edit-header h3 {
+  margin: 6px 0 0;
+  color: #ffffff;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1;
+}
+
+.profile-track-edit-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  color: rgb(232 244 255 / 0.78);
+  border: 1px solid rgb(232 244 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.profile-track-edit-close:hover,
+.profile-track-edit-close:focus-visible {
+  color: #ffffff;
+  border-color: rgb(185 220 255 / 0.36);
+  background: rgb(255 255 255 / 0.12);
+}
+
+.profile-track-edit-close:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.profile-track-edit-close:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.profile-track-edit-stage {
+  gap: 14px;
+}
+
+.profile-track-edit-grid {
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+}
+
+.profile-track-edit-dialog .upload-cover-dropzone {
+  max-height: 250px;
+}
+
+.profile-track-edit-dialog .upload-form-fields {
+  gap: 12px;
+}
+
+.profile-track-edit-dialog .upload-field textarea {
+  height: 96px;
+  min-height: 96px;
+  max-height: 96px;
+}
+
+.profile-track-edit-dialog .upload-category-menu {
+  max-height: min(220px, 32vh);
+}
+
+.profile-track-edit-dialog .upload-category-options {
+  max-height: min(160px, 24vh);
+}
+
+.profile-track-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.profile-edit-confirm:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.profile-edit-confirm:disabled svg {
+  animation: profile-delete-spin 0.9s linear infinite;
+}
+
 .profile-delete-cancel:hover,
 .profile-delete-confirm:hover,
 .profile-edit-confirm:hover {
@@ -761,8 +906,37 @@ body.profile-delete-dialog-active .player-bar {
     grid-template-columns: 1fr;
   }
 
+  .profile-track-edit-dialog {
+    width: min(100%, calc(100vw - 28px));
+    max-height: calc(100dvh - 28px);
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .profile-track-edit-header h3 {
+    font-size: 28px;
+  }
+
+  .profile-track-edit-close {
+    width: 48px;
+    height: 48px;
+  }
+
+  .profile-track-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-track-edit-dialog .upload-cover-block {
+    width: min(260px, 100%);
+  }
+
   .profile-delete-dialog-actions {
     justify-content: stretch;
+  }
+
+  .profile-track-edit-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .profile-delete-cancel,
@@ -820,5 +994,22 @@ body.profile-delete-dialog-active .player-bar {
     grid-row: 1 / span 2;
     align-self: center;
     justify-self: end;
+  }
+
+  .profile-track-edit-header {
+    align-items: center;
+  }
+
+  .profile-track-edit-header h3 {
+    font-size: 24px;
+  }
+
+  .profile-track-edit-close {
+    width: 42px;
+    height: 42px;
+  }
+
+  .profile-track-edit-actions {
+    grid-template-columns: 1fr;
   }
 }

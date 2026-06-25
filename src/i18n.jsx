@@ -237,6 +237,7 @@ const translations = {
       createTitle: "Tạo danh sách phát",
       createDescription: "Tạo danh sách phát riêng",
       newDialogTitle: "Tạo danh sách phát mới",
+      editDialogTitle: "Sửa danh sách phát",
       coverAlt: "Ảnh bìa danh sách phát",
       cover: "Ảnh bìa",
       uploadImage: "Tải ảnh lên",
@@ -252,9 +253,25 @@ const translations = {
       songSearchPlaceholder: "Tìm bài hát hoặc nghệ sĩ",
       noSongResults: "Không tìm thấy bài hát phù hợp.",
       save: "Lưu danh sách phát",
+      saving: "Đang lưu...",
+      saveError: "Không thể lưu danh sách phát.",
+      update: "Cập nhật danh sách",
+      updating: "Đang cập nhật...",
+      updateError: "Không thể cập nhật danh sách phát.",
+      deleting: "Đang xóa...",
+      deleteError: "Không thể xóa danh sách phát.",
+      confirmDelete: "Xóa danh sách",
+      deleteDialogTitle: "Xóa danh sách phát này?",
+      deleteDialogDescription:
+        "Danh sách '{name}' sẽ bị xóa hoàn toàn. Các bài hát trong danh sách vẫn được giữ lại trong thư viện của bạn.",
       defaultDescription: "Danh sách phát cá nhân",
       selectedSummary: "{count} bài - {duration}",
       songMinute: "{count} phút",
+      actions: {
+        open: "Mở tùy chọn cho {name}",
+        edit: "Sửa",
+        delete: "Xóa",
+      },
       playlists: {
         allSongs: {
           title: "Tất cả bài hát",
@@ -312,6 +329,7 @@ const translations = {
       inLibrary: "Trong thư viện",
       deleteTrack: "Xóa {title}",
       editTrack: "Sửa {title}",
+      editTrackKicker: "Nhạc đã upload",
       editTrackTitle: "Chỉnh sửa bài hát này?",
       editTrackConfirm:
         'Bạn sẽ được chuyển tới trang Upload để cập nhật thông tin của "{title}".',
@@ -618,6 +636,7 @@ const translations = {
       createTitle: "Create playlist",
       createDescription: "Build a custom playlist",
       newDialogTitle: "Create a new playlist",
+      editDialogTitle: "Edit playlist",
       coverAlt: "Playlist cover",
       cover: "Cover",
       uploadImage: "Upload image",
@@ -633,9 +652,25 @@ const translations = {
       songSearchPlaceholder: "Search songs or artists",
       noSongResults: "No matching songs found.",
       save: "Save playlist",
+      saving: "Saving...",
+      saveError: "Could not save the playlist.",
+      update: "Update playlist",
+      updating: "Updating...",
+      updateError: "Could not update the playlist.",
+      deleting: "Deleting...",
+      deleteError: "Could not delete the playlist.",
+      confirmDelete: "Delete playlist",
+      deleteDialogTitle: "Delete this playlist?",
+      deleteDialogDescription:
+        "Playlist '{name}' will be completely deleted. Songs in this playlist will remain in your library.",
       defaultDescription: "Personal playlist",
       selectedSummary: "{count} songs - {duration}",
       songMinute: "{count} min",
+      actions: {
+        open: "Open options for {name}",
+        edit: "Edit",
+        delete: "Delete",
+      },
       playlists: {
         allSongs: {
           title: "All songs",
@@ -693,6 +728,7 @@ const translations = {
       inLibrary: "In library",
       deleteTrack: "Delete {title}",
       editTrack: "Edit {title}",
+      editTrackKicker: "Uploaded music",
       editTrackTitle: "Edit this track?",
       editTrackConfirm:
         'You will go to the Upload page to update "{title}".',
