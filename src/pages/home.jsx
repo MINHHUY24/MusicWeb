@@ -3,6 +3,20 @@ import CardMusic from "../components/card_music.jsx";
 import LoadingState from "../components/loading_state.jsx";
 import { useLanguage } from "../i18n.jsx";
 
+const trendingRandomSeed = Math.random().toString(36).slice(2);
+
+function getTrendingRandomRank(songId) {
+  const value = `${trendingRandomSeed}:${songId}`;
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0) / 4294967295;
+}
+
 function MusicLane({ title, songs: laneSongs, onSongClick, getArtist, player }) {
   const { t } = useLanguage();
   const laneScrollRef = useRef(null);
@@ -90,15 +104,23 @@ function MusicLane({ title, songs: laneSongs, onSongClick, getArtist, player }) 
 
 function Home({ player, songs = [], isLoading = false, error = "" }) {
   const { t } = useLanguage();
-  const [clickCounts, setClickCounts] = useState({});
+  const [optimisticClicks, setOptimisticClicks] = useState({});
 
-  const favoriteSongs = useMemo(
-    () =>
-      songs
-        .map((song) => ({ ...song, clicks: clickCounts[song.id] ?? song.clicks ?? 0 }))
-        .sort((firstSong, secondSong) => secondSong.clicks - firstSong.clicks),
-    [clickCounts, songs],
-  );
+  const trendingSongs = useMemo(() => {
+    return songs
+      .map((song) => ({
+        ...song,
+        clicks: optimisticClicks[song.id] ?? song.clicks ?? 0,
+        randomRank: getTrendingRandomRank(song.id),
+      }))
+      .sort((firstSong, secondSong) => {
+        const clickDiff = secondSong.clicks - firstSong.clicks;
+
+        if (clickDiff !== 0) return clickDiff;
+
+        return firstSong.randomRank - secondSong.randomRank;
+      });
+  }, [optimisticClicks, songs]);
 
   const chillLaneSongs = useMemo(
     () => [
@@ -112,10 +134,29 @@ function Home({ player, songs = [], isLoading = false, error = "" }) {
   function handleSongClick(songId) {
     const baseClicks = songs.find((song) => song.id === songId)?.clicks ?? 0;
 
-    setClickCounts((currentCounts) => ({
+    setOptimisticClicks((currentCounts) => ({
       ...currentCounts,
       [songId]: (currentCounts[songId] ?? baseClicks) + 1,
     }));
+
+    fetch(`/api/tracks/${encodeURIComponent(songId)}/click`, {
+      method: "POST",
+    })
+      .then((response) => response.json().then((payload) => ({ response, payload })))
+      .then(({ response, payload }) => {
+        if (!response.ok || !payload.track) return;
+
+        setOptimisticClicks((currentCounts) => ({
+          ...currentCounts,
+          [songId]: payload.track.clicks ?? currentCounts[songId] ?? baseClicks + 1,
+        }));
+      })
+      .catch(() => {
+        setOptimisticClicks((currentCounts) => ({
+          ...currentCounts,
+          [songId]: baseClicks,
+        }));
+      });
   }
 
   if (isLoading) {
@@ -160,17 +201,20 @@ function Home({ player, songs = [], isLoading = false, error = "" }) {
       <div className="home-swimlanes">
         <MusicLane
           title={t("home.trending")}
-          songs={favoriteSongs}
-          getArtist={(song) =>
-            `${t(`songs.${song.id}.description`, {}, song.description)} • ${song.clicks} ${t("home.clicks")}`
-          }
+          songs={trendingSongs}
           onSongClick={handleSongClick}
           player={player}
         />
-        <MusicLane title={t("home.chill")} songs={chillLaneSongs} player={player} />
+        <MusicLane
+          title={t("home.chill")}
+          songs={chillLaneSongs}
+          onSongClick={handleSongClick}
+          player={player}
+        />
         <MusicLane
           title={t("home.newRelease")}
           songs={newReleaseLaneSongs}
+          onSongClick={handleSongClick}
           player={player}
         />
       </div>

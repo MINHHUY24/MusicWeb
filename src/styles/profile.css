@@ -131,9 +131,9 @@
   gap: 4px;
   min-height: 64px;
   padding: 10px;
-  border: 1px solid rgb(232 244 255 / 0.16);
+  /* border: 1px solid rgb(232 244 255 / 0.16);
   border-radius: 20px;
-  background: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.08); */
 }
 
 .profile-stat strong {

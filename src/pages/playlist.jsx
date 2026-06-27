@@ -13,7 +13,6 @@ import CardPlaylist from "../components/card_playlist.jsx";
 import LoadingState from "../components/loading_state.jsx";
 import {
   buildCustomPlaylists,
-  buildPlaylists,
   mapAvailableSongs,
   toneOptions,
 } from "../datas/playlistData.js";
@@ -63,7 +62,6 @@ function Playlist({
   const [isDeletingPlaylist, setIsDeletingPlaylist] = useState(false);
 
   const availableSongs = useMemo(() => mapAvailableSongs(tracks), [tracks]);
-  const defaultPlaylists = useMemo(() => buildPlaylists(tracks), [tracks]);
   const savedCustomPlaylists = useMemo(
     () => buildCustomPlaylists(customPlaylists, tracks),
     [customPlaylists, tracks],
@@ -72,10 +70,7 @@ function Playlist({
     () => new Set(savedCustomPlaylists.map((playlist) => playlist.id)),
     [savedCustomPlaylists],
   );
-  const playlists = useMemo(
-    () => [...savedCustomPlaylists, ...defaultPlaylists],
-    [savedCustomPlaylists, defaultPlaylists],
-  );
+  const playlists = savedCustomPlaylists;
 
   const selectedSongs = useMemo(
     () => availableSongs.filter((song) => form.songIds.includes(song.id)),

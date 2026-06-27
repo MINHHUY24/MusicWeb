@@ -5,18 +5,17 @@ import {
   Play,
   Plus,
   Trash,
-} from '@phosphor-icons/react'
-import { useLanguage } from '../i18n.jsx'
-import '../styles/card_playlist.css'
+} from "@phosphor-icons/react";
+import { useLanguage } from "../i18n.jsx";
+import "../styles/card_playlist.css";
 
 function CardPlaylist({
   title,
-  description,
   cover,
   coverAlt,
   songCount,
   duration,
-  tone = 'blue',
+  tone = "blue",
   isCreate = false,
   isMenuOpen = false,
   onClick,
@@ -24,31 +23,31 @@ function CardPlaylist({
   onEdit,
   onDelete,
 }) {
-  const { t } = useLanguage()
-  const hasMenu = !isCreate && (onEdit || onDelete)
+  const { t } = useLanguage();
+  const hasMenu = !isCreate && (onEdit || onDelete);
   const cardClassName = [
-    isCreate ? 'card_playlist card_playlist-create' : 'card_playlist',
-    isMenuOpen ? 'card_playlist-menu-open' : '',
+    isCreate ? "card_playlist card_playlist-create" : "card_playlist",
+    isMenuOpen ? "card_playlist-menu-open" : "",
   ]
     .filter(Boolean)
-    .join(' ')
+    .join(" ");
 
   function handleCardKeyDown(event) {
-    if (event.target !== event.currentTarget) return
-    if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return
+    if (event.target !== event.currentTarget) return;
+    if (!onClick || (event.key !== "Enter" && event.key !== " ")) return;
 
-    event.preventDefault()
-    onClick()
+    event.preventDefault();
+    onClick();
   }
 
   function handleMenuToggle(event) {
-    event.stopPropagation()
-    onMenuToggle?.()
+    event.stopPropagation();
+    onMenuToggle?.();
   }
 
   function handleMenuAction(event, action) {
-    event.stopPropagation()
-    action?.()
+    event.stopPropagation();
+    action?.();
   }
 
   return (
@@ -62,10 +61,16 @@ function CardPlaylist({
       onKeyDown={handleCardKeyDown}
     >
       <span className="card_playlist-cover">
-        {cover ? <img src={cover} alt={coverAlt || title} loading="lazy" /> : null}
+        {cover ? (
+          <img src={cover} alt={coverAlt || title} loading="lazy" />
+        ) : null}
 
         <span className="card_playlist-fallback">
-          {isCreate ? <Plus size={34} weight="bold" /> : <MusicNotesSimple size={34} weight="bold" />}
+          {isCreate ? (
+            <Plus size={34} weight="bold" />
+          ) : (
+            <MusicNotesSimple size={34} weight="bold" />
+          )}
         </span>
 
         {!isCreate ? (
@@ -84,7 +89,7 @@ function CardPlaylist({
               <button
                 className="card_playlist-menu"
                 type="button"
-                aria-label={t('playlistPage.actions.open', { name: title })}
+                aria-label={t("playlistPage.actions.open", { name: title })}
                 aria-expanded={isMenuOpen}
                 onClick={handleMenuToggle}
               >
@@ -100,7 +105,7 @@ function CardPlaylist({
                       onClick={(event) => handleMenuAction(event, onEdit)}
                     >
                       <PencilSimple size={17} weight="bold" />
-                      <span>{t('playlistPage.actions.edit')}</span>
+                      <span>{t("playlistPage.actions.edit")}</span>
                     </button>
                   ) : null}
 
@@ -112,7 +117,7 @@ function CardPlaylist({
                       onClick={(event) => handleMenuAction(event, onDelete)}
                     >
                       <Trash size={17} weight="bold" />
-                      <span>{t('playlistPage.actions.delete')}</span>
+                      <span>{t("playlistPage.actions.delete")}</span>
                     </button>
                   ) : null}
                 </span>
@@ -121,15 +126,17 @@ function CardPlaylist({
           ) : null}
         </span>
 
-        <span className="card_playlist-description">{description}</span>
-
         <span className="card_playlist-meta">
-          <span>{isCreate ? t('card.favoriteSongs') : t('card.songCount', { count: songCount })}</span>
+          <span>
+            {isCreate
+              ? t("card.favoriteSongs")
+              : t("card.songCount", { count: songCount })}
+          </span>
           {!isCreate && duration ? <span>{duration}</span> : null}
         </span>
       </span>
     </div>
-  )
+  );
 }
 
-export default CardPlaylist
+export default CardPlaylist;

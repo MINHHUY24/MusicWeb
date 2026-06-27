@@ -18,6 +18,7 @@ import Home from './pages/home.jsx'
 import Playlist from './pages/playlist.jsx'
 import PlaylistDetail from './pages/playlist_detail.jsx'
 import Profile from './pages/profile.jsx'
+import SongDetail from './pages/song_detail.jsx'
 import Upload from './pages/upload.jsx'
 
 const compactSidebarQuery = '(max-width: 760px)'
@@ -445,7 +446,8 @@ function App() {
     isHomeWaitingPage ||
     ['/category', '/playlist', '/profile', '/upload'].includes(location.pathname) ||
     location.pathname.startsWith('/category/') ||
-    location.pathname.startsWith('/playlist/')
+    location.pathname.startsWith('/playlist/') ||
+    location.pathname.startsWith('/song_detail/')
   const pageContentClassName = [
     'page-content',
     isContainedScrollPage ? 'page-content-contained' : '',
@@ -688,6 +690,17 @@ function App() {
                     error={musicLoadError}
                   />
                 </AuthGate>
+              }
+            />
+            <Route
+              path="/song_detail/:songId"
+              element={
+                <SongDetail
+                  player={player}
+                  tracks={musicLibrary}
+                  isLoading={isMusicLoading}
+                  error={musicLoadError}
+                />
               }
             />
             <Route

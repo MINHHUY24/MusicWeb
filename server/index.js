@@ -7,9 +7,12 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const AUDIO_BUCKET = process.env.SUPABASE_AUDIO_BUCKET || "track-audio";
 const COVER_BUCKET = process.env.SUPABASE_COVER_BUCKET || "track-covers";
+const LYRICS_CACHE_TTL_MS = 1000 * 60 * 60 * 12;
+const LYRICS_FETCH_TIMEOUT_MS = Number(process.env.LYRICS_FETCH_TIMEOUT_MS || 10000);
 const PLAYLIST_SCHEMA_SETUP_MESSAGE =
   "Chưa có bảng playlists/playlist_tracks trong Supabase. Hãy chạy SQL trong supabase-auth-setup.sql rồi thử lại.";
 const PLAYLIST_TONES = new Set(["blue", "mint", "rose", "amber"]);
+const lyricsCache = new Map();
 
 function requireSupabaseConfig() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -107,6 +110,300 @@ function slugify(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeLookupText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function cleanTrackTitle(value) {
+  return String(value || "")
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+    .replace(/\b(official|music video|lyric video|lyrics|audio|video|remix|m\s*v|mv)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanArtistName(value) {
+  return String(value || "")
+    .replace(/\b(official|topic|vevo)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqueValues(values) {
+  const seenValues = new Set();
+
+  return values.filter((value) => {
+    const normalizedValue = normalizeLookupText(value);
+
+    if (!normalizedValue || seenValues.has(normalizedValue)) return false;
+
+    seenValues.add(normalizedValue);
+    return true;
+  });
+}
+
+function getLyricsLookupCandidates(title, artist) {
+  const titleCandidates = uniqueValues([title, cleanTrackTitle(title)]);
+  const cleanedArtist = cleanArtistName(artist);
+  const primaryArtist = cleanedArtist
+    .split(/\s+(?:x|ft\.?|feat\.?|featuring|&|,)\s+/i)
+    .map((value) => value.trim())
+    .filter(Boolean)[0];
+  const artistCandidates = uniqueValues([artist, cleanedArtist, primaryArtist]);
+  const candidates = [];
+
+  titleCandidates.forEach((titleCandidate) => {
+    artistCandidates.forEach((artistCandidate) => {
+      candidates.push({
+        title: titleCandidate,
+        artist: artistCandidate,
+      });
+    });
+  });
+
+  if (!candidates.length && title.trim()) {
+    candidates.push({ title: title.trim(), artist: artist.trim() });
+  }
+
+  return candidates;
+}
+
+async function fetchJsonWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = windowSafeSetTimeout(() => controller.abort(), LYRICS_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "MusicWeb/1.0 lyrics lookup",
+        ...options.headers,
+      },
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    let payload = null;
+
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      payload = null;
+    }
+
+    return {
+      ok: response.ok,
+      payload,
+      status: response.status,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function windowSafeSetTimeout(callback, timeout) {
+  return setTimeout(callback, timeout);
+}
+
+function cleanLyricsText(value) {
+  return String(value || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:\[[0-9:.]+\]\s*)+/, "").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function parseLyricsTimestamp(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/);
+
+  if (!match) return null;
+
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  const fractionText = match[3] || "0";
+  const fraction = Number(fractionText.padEnd(3, "0").slice(0, 3)) / 1000;
+  const timestamp = minutes * 60 + seconds + fraction;
+
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getSyncedLyricsLines(value) {
+  return String(value || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .flatMap((rawLine) => {
+      const timestampMatches = [...rawLine.matchAll(/\[([0-9:.]+)\]/g)];
+      const text = rawLine.replace(/\[[^\]]+\]/g, "").trim();
+
+      if (!text || !timestampMatches.length) return [];
+
+      return timestampMatches
+        .map((match) => parseLyricsTimestamp(match[1]))
+        .filter((time) => Number.isFinite(time))
+        .map((time) => ({
+          text,
+          time,
+        }));
+    })
+    .sort((left, right) => left.time - right.time);
+}
+
+function getLyricsLines(value) {
+  return cleanLyricsText(value)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function buildLyricsResult(lyricsText, source, metadata = {}, syncedLyrics = "") {
+  const lyrics = cleanLyricsText(lyricsText);
+  const lines = getLyricsLines(lyrics);
+  const timedLines = getSyncedLyricsLines(syncedLyrics);
+
+  if (!lines.length) return null;
+
+  return {
+    isSynced: timedLines.length > 0,
+    lyrics,
+    lines,
+    source,
+    timedLines,
+    ...metadata,
+  };
+}
+
+function getLrclibMatchScore(item, candidate) {
+  const itemTitle = normalizeLookupText(item.trackName || item.name);
+  const itemArtist = normalizeLookupText(item.artistName);
+  const candidateTitle = normalizeLookupText(candidate.title);
+  const candidateArtist = normalizeLookupText(candidate.artist);
+  let score = item.instrumental ? -5 : 0;
+
+  if (itemTitle === candidateTitle) {
+    score += 8;
+  } else if (itemTitle.includes(candidateTitle) || candidateTitle.includes(itemTitle)) {
+    score += 4;
+  }
+
+  if (itemArtist === candidateArtist) {
+    score += 6;
+  } else if (itemArtist.includes(candidateArtist) || candidateArtist.includes(itemArtist)) {
+    score += 3;
+  }
+
+  if (item.plainLyrics || item.syncedLyrics) {
+    score += 2;
+  }
+
+  return score;
+}
+
+function getLrclibLyricsResult(item, source = "LRCLIB") {
+  const lyricsText = item?.plainLyrics || item?.syncedLyrics || "";
+
+  return buildLyricsResult(
+    lyricsText,
+    source,
+    {
+      providerTitle: item?.trackName || item?.name || "",
+      providerArtist: item?.artistName || "",
+    },
+    item?.syncedLyrics || "",
+  );
+}
+
+async function findLrclibLyrics(candidates) {
+  for (const candidate of candidates) {
+    const query = new URLSearchParams({
+      track_name: candidate.title,
+      artist_name: candidate.artist,
+    });
+    const result = await fetchJsonWithTimeout(`https://lrclib.net/api/get?${query.toString()}`);
+
+    if (result.ok) {
+      const lyricsResult = getLrclibLyricsResult(result.payload);
+
+      if (lyricsResult) return lyricsResult;
+    }
+  }
+
+  for (const candidate of candidates) {
+    const query = new URLSearchParams({
+      track_name: candidate.title,
+      artist_name: candidate.artist,
+    });
+    const result = await fetchJsonWithTimeout(`https://lrclib.net/api/search?${query.toString()}`);
+
+    if (!result.ok || !Array.isArray(result.payload)) continue;
+
+    const bestMatch = result.payload
+      .filter((item) => item?.plainLyrics || item?.syncedLyrics)
+      .map((item) => ({
+        item,
+        score: getLrclibMatchScore(item, candidate),
+      }))
+      .sort((left, right) => right.score - left.score)[0];
+
+    if (!bestMatch || bestMatch.score < 6) continue;
+
+    const lyricsResult = getLrclibLyricsResult(bestMatch.item);
+
+    if (lyricsResult) return lyricsResult;
+  }
+
+  return null;
+}
+
+async function findLyricsOvhLyrics(candidates) {
+  for (const candidate of candidates) {
+    const result = await fetchJsonWithTimeout(
+      `https://api.lyrics.ovh/v1/${encodeURIComponent(candidate.artist)}/${encodeURIComponent(candidate.title)}`,
+    );
+
+    if (!result.ok || !result.payload?.lyrics) continue;
+
+    const lyricsResult = buildLyricsResult(result.payload.lyrics, "lyrics.ovh");
+
+    if (lyricsResult) return lyricsResult;
+  }
+
+  return null;
+}
+
+async function lookupLyrics(title, artist) {
+  const trimmedTitle = String(title || "").trim();
+  const trimmedArtist = String(artist || "").trim();
+  const cacheKey = `${normalizeLookupText(trimmedTitle)}::${normalizeLookupText(trimmedArtist)}`;
+  const cachedLyrics = lyricsCache.get(cacheKey);
+
+  if (cachedLyrics && cachedLyrics.expiresAt > Date.now()) {
+    return cachedLyrics.result;
+  }
+
+  const candidates = getLyricsLookupCandidates(trimmedTitle, trimmedArtist);
+  const result =
+    (await findLrclibLyrics(candidates).catch(() => null)) ||
+    (await findLyricsOvhLyrics(candidates).catch(() => null));
+
+  if (result) {
+    lyricsCache.set(cacheKey, {
+      expiresAt: Date.now() + LYRICS_CACHE_TTL_MS,
+      result,
+    });
+  }
+
+  return result;
 }
 
 function sanitizeStorageFileName(fileName, fallbackName) {
@@ -487,6 +784,73 @@ async function updateTrack(updateQuery, updatePayload) {
   throw new Error("Cannot update track with current Supabase schema.");
 }
 
+async function updateTrackClicks(trackId, clicks) {
+  let embedCategories = true;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const query = new URLSearchParams({
+      id: `eq.${trackId}`,
+    });
+    query.set("select", embedCategories ? "*,categories(id,name,tone,description)" : "*");
+
+    try {
+      return await supabaseFetch(`/rest/v1/tracks?${query.toString()}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ clicks }),
+      });
+    } catch (error) {
+      if (embedCategories && getIsEmbeddedResourceError(error)) {
+        embedCategories = false;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  return [];
+}
+
+async function incrementTrackClick(trackId) {
+  try {
+    const rpcResult = await supabaseFetch("/rest/v1/rpc/increment_track_clicks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ target_track_id: trackId }),
+    });
+    const updatedTrack = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+
+    if (updatedTrack) {
+      return normalizeTrack(updatedTrack);
+    }
+  } catch {
+    // Fallback for projects that have not run the optional RPC SQL yet.
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${trackId}`,
+    select: "id,clicks",
+  });
+  const rows = await supabaseFetch(`/rest/v1/tracks?${query.toString()}`);
+  const currentTrack = rows[0];
+
+  if (!currentTrack) {
+    return null;
+  }
+
+  const currentClicks = Number.isFinite(Number(currentTrack.clicks)) ? Number(currentTrack.clicks) : 0;
+  const updatedRows = await updateTrackClicks(trackId, currentClicks + 1);
+  const updatedTrack = updatedRows[0];
+
+  return updatedTrack ? normalizeTrack(updatedTrack) : null;
+}
+
 async function handleGetCategories(request, response) {
   const categoryQuery = new URLSearchParams({
     select: "*",
@@ -507,6 +871,28 @@ async function handleGetTracks(request, response) {
   const tracks = await getPublishedTracks();
 
   sendJson(response, 200, { tracks });
+}
+
+async function handleGetLyrics(url, response) {
+  const title = String(url.searchParams.get("title") || "").trim();
+  const artist = String(url.searchParams.get("artist") || "").trim();
+
+  if (!title) {
+    sendJson(response, 400, { error: "Missing song title." });
+    return;
+  }
+
+  const lyricsResult = await lookupLyrics(title, artist);
+
+  if (!lyricsResult) {
+    sendJson(response, 404, {
+      error: "Không tìm thấy lời bài hát phù hợp.",
+      lines: [],
+    });
+    return;
+  }
+
+  sendJson(response, 200, lyricsResult);
 }
 
 async function handleGetCurrentUserTracks(request, response) {
@@ -963,6 +1349,17 @@ async function handleDeleteTrack(request, trackId, response) {
   sendNoContent(response);
 }
 
+async function handleIncrementTrackClick(trackId, response) {
+  const track = await incrementTrackClick(trackId);
+
+  if (!track) {
+    sendJson(response, 404, { error: "Track not found." });
+    return;
+  }
+
+  sendJson(response, 200, { track });
+}
+
 async function handleRequest(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
 
@@ -984,6 +1381,11 @@ async function handleRequest(request, response) {
 
     if (request.method === "GET" && url.pathname === "/api/tracks") {
       await handleGetTracks(request, response);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/lyrics") {
+      await handleGetLyrics(url, response);
       return;
     }
 
@@ -1016,6 +1418,13 @@ async function handleRequest(request, response) {
 
     if (request.method === "POST" && url.pathname === "/api/tracks") {
       await handleCreateTrack(request, response);
+      return;
+    }
+
+    const trackClickId = url.pathname.match(/^\/api\/tracks\/([^/]+)\/click$/)?.[1];
+
+    if (request.method === "POST" && trackClickId) {
+      await handleIncrementTrackClick(decodeURIComponent(trackClickId), response);
       return;
     }
 

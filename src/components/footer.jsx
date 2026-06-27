@@ -8,8 +8,10 @@ import {
   SkipBack,
   SkipForward,
   SpeakerHigh,
+  SpeakerSlash,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "../i18n.jsx";
 
 function formatTime(value) {
@@ -49,6 +51,8 @@ function Footer({ player }) {
     onVolumeChange,
     volume,
   } = player;
+  const previousVolumeRef = useRef(volume || 1);
+  const isMuted = volume <= 0;
   const nextSongs = useMemo(() => {
     if (!playerQueue.length) return [];
     if (currentSongIndex < 0) {
@@ -72,7 +76,16 @@ function Footer({ player }) {
 
     if (!audio) return;
 
-    audio.volume = volume;
+    const safeVolume = Math.min(Math.max(volume, 0), 1);
+
+    audio.volume = safeVolume;
+    audio.muted = safeVolume <= 0;
+  }, [volume]);
+
+  useEffect(() => {
+    if (volume > 0) {
+      previousVolumeRef.current = volume;
+    }
   }, [volume]);
 
   useEffect(() => {
@@ -135,6 +148,29 @@ function Footer({ player }) {
     onEnded();
   }
 
+  function handleVolumeChange(event) {
+    const nextVolume = Math.min(
+      Math.max(Number(event.target.value) || 0, 0),
+      1,
+    );
+
+    if (nextVolume > 0) {
+      previousVolumeRef.current = nextVolume;
+    }
+
+    onVolumeChange(nextVolume);
+  }
+
+  function handleMuteToggle() {
+    if (isMuted) {
+      onVolumeChange(previousVolumeRef.current > 0 ? previousVolumeRef.current : 1);
+      return;
+    }
+
+    previousVolumeRef.current = volume > 0 ? volume : previousVolumeRef.current || 1;
+    onVolumeChange(0);
+  }
+
   return (
     // NOTE: Phần thanh phát nhạc dưới cùng
     <footer className="player-bar" aria-label={t("footer.musicPlayer")}>
@@ -158,9 +194,16 @@ function Footer({ player }) {
           )}
         </div>
         <div className="song-copy">
-          <p className="song-title">
-            {currentSong?.title || t("common.noSongPlaying")}
-          </p>
+          {currentSong ? (
+            <Link
+              className="song-title song-title-link"
+              to={`/song_detail/${encodeURIComponent(currentSong.id)}`}
+            >
+              {currentSong.title}
+            </Link>
+          ) : (
+            <p className="song-title">{t("common.noSongPlaying")}</p>
+          )}
           <p className="song-artist">
             {currentSong?.artist || t("common.unknownArtist")}
           </p>
@@ -268,7 +311,19 @@ function Footer({ player }) {
 
       {/* NOTE: Phần âm lượng và danh sách phát */}
       <div className="player-tools" ref={queueRef}>
-        <SpeakerHigh size={25} weight="fill" />
+        <button
+          className={isMuted ? "volume-toggle volume-toggle-muted" : "volume-toggle"}
+          type="button"
+          aria-label={isMuted ? t("footer.unmute") : t("footer.mute")}
+          aria-pressed={isMuted}
+          onClick={handleMuteToggle}
+        >
+          {isMuted ? (
+            <SpeakerSlash size={25} weight="fill" />
+          ) : (
+            <SpeakerHigh size={25} weight="fill" />
+          )}
+        </button>
         <input
           className="volume-range"
           type="range"
@@ -276,7 +331,7 @@ function Footer({ player }) {
           max="1"
           step="0.01"
           value={volume}
-          onChange={(event) => onVolumeChange(Number(event.target.value))}
+          onChange={handleVolumeChange}
           aria-label={t("footer.volume")}
           style={{ "--progress": `${volume * 100}%` }}
         />

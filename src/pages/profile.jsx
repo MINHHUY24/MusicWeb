@@ -15,7 +15,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import LoadingState from "../components/loading_state.jsx";
 import UserAvatar from "../components/user_avatar.jsx";
 import {
@@ -71,7 +71,13 @@ function Profile({
   error = "",
 }) {
   const { language, t } = useLanguage();
-  const [activeTab, setActiveTab] = useState("favorites");
+  const location = useLocation();
+  const initialActiveTab = profileTabs.some(
+    (tab) => tab.id === location.state?.activeTab,
+  )
+    ? location.state.activeTab
+    : "favorites";
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [deletingTrackId, setDeletingTrackId] = useState("");
   const [pendingEditTrack, setPendingEditTrack] = useState(null);
   const [pendingDeleteTrack, setPendingDeleteTrack] = useState(null);
