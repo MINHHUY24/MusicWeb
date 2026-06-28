@@ -2659,9 +2659,9 @@ body .page-section.page-loading-page > .loading-state {
 
 /* NOTE: Sidebar hover - nền active lùi nhẹ vào trong nhưng không kéo lệch icon */
 .side-link {
-  --side-hover-padding: 6px;
+  --side-hover-padding: 2px;
   --side-hover-left: var(--side-hover-padding);
-  --side-hover-width: calc(100% - 12px);
+  --side-hover-width: calc(100% - (var(--side-hover-left) * 2));
   position: relative;
   background: transparent;
   border-color: transparent;
