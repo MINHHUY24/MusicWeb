@@ -52,6 +52,7 @@ function Footer({ player }) {
     volume,
   } = player;
   const previousVolumeRef = useRef(volume || 1);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
   const isMuted = volume <= 0;
   const nextSongs = useMemo(() => {
     if (!playerQueue.length) return [];
@@ -81,6 +82,10 @@ function Footer({ player }) {
     audio.volume = safeVolume;
     audio.muted = safeVolume <= 0;
   }, [volume]);
+
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
 
   useEffect(() => {
     if (volume > 0) {
@@ -123,6 +128,20 @@ function Footer({ player }) {
     }
 
     audio.pause();
+  }, [currentSong?.audio, isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      const audio = audioRef.current;
+
+      if (audio) {
+        onTimeUpdateRef.current(audio.currentTime);
+      }
+    }, 120);
+
+    return () => window.clearInterval(intervalId);
   }, [currentSong?.audio, isPlaying]);
 
   function handleSeek(event) {

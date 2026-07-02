@@ -8,7 +8,11 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const AUDIO_BUCKET = process.env.SUPABASE_AUDIO_BUCKET || "track-audio";
 const COVER_BUCKET = process.env.SUPABASE_COVER_BUCKET || "track-covers";
 const LYRICS_CACHE_TTL_MS = 1000 * 60 * 60 * 12;
-const LYRICS_FETCH_TIMEOUT_MS = Number(process.env.LYRICS_FETCH_TIMEOUT_MS || 10000);
+const LYRICS_NOT_FOUND_CACHE_TTL_MS = 1000 * 60 * 20;
+const LYRICS_FETCH_TIMEOUT_MS = Number(process.env.LYRICS_FETCH_TIMEOUT_MS || 6500);
+const MAX_LYRICS_LOOKUP_CANDIDATES = 8;
+const MAX_LRCLIB_EXACT_CANDIDATES = 4;
+const MAX_LRCLIB_SEARCH_CANDIDATES = 5;
 const PLAYLIST_SCHEMA_SETUP_MESSAGE =
   "Chưa có bảng playlists/playlist_tracks trong Supabase. Hãy chạy SQL trong supabase-auth-setup.sql rồi thử lại.";
 const PLAYLIST_TONES = new Set(["blue", "mint", "rose", "amber"]);
@@ -112,15 +116,23 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function normalizeLookupText(value) {
+function stripVietnameseMarks(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
+    .replace(/Đ/g, "D");
+}
+
+function normalizeLookupText(value) {
+  return stripVietnameseMarks(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizeSpacing(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function cleanTrackTitle(value) {
@@ -141,24 +153,57 @@ function cleanArtistName(value) {
 function uniqueValues(values) {
   const seenValues = new Set();
 
-  return values.filter((value) => {
-    const normalizedValue = normalizeLookupText(value);
+  return values
+    .map(normalizeSpacing)
+    .filter((value) => {
+      const normalizedValue = normalizeLookupText(value);
+      const exactValue = value.normalize("NFC").toLowerCase();
 
-    if (!normalizedValue || seenValues.has(normalizedValue)) return false;
+      if (!normalizedValue || seenValues.has(exactValue)) return false;
 
-    seenValues.add(normalizedValue);
-    return true;
-  });
+      seenValues.add(exactValue);
+      return true;
+    });
 }
 
-function getLyricsLookupCandidates(title, artist) {
-  const titleCandidates = uniqueValues([title, cleanTrackTitle(title)]);
+function splitArtistNames(value) {
+  return cleanArtistName(value)
+    .replace(/\s*(?:[&,;/+]|\b(?:x|ft\.?|feat\.?|featuring|with|and|và)\b)\s*/gi, " | ")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function getArtistLookupCandidates(artist) {
   const cleanedArtist = cleanArtistName(artist);
-  const primaryArtist = cleanedArtist
-    .split(/\s+(?:x|ft\.?|feat\.?|featuring|&|,)\s+/i)
-    .map((value) => value.trim())
-    .filter(Boolean)[0];
-  const artistCandidates = uniqueValues([artist, cleanedArtist, primaryArtist]);
+  const artistParts = splitArtistNames(cleanedArtist);
+  const joinedArtistParts = artistParts.join(" ");
+  const firstTwoArtists = artistParts.slice(0, 2);
+  const withoutLastArtist = artistParts.length > 2 ? artistParts.slice(0, -1) : [];
+
+  return uniqueValues([
+    firstTwoArtists.join(" "),
+    firstTwoArtists.join(" & "),
+    firstTwoArtists.join(" x "),
+    artist,
+    cleanedArtist,
+    joinedArtistParts,
+    withoutLastArtist.join(" "),
+    withoutLastArtist.join(" & "),
+    artistParts[0],
+    stripVietnameseMarks(cleanedArtist),
+    stripVietnameseMarks(joinedArtistParts),
+  ]);
+}
+
+function getLyricsLookupCandidates(title, artist, durationSeconds = 0) {
+  const titleCandidates = uniqueValues([
+    title,
+    cleanTrackTitle(title),
+    stripVietnameseMarks(title),
+    stripVietnameseMarks(cleanTrackTitle(title)),
+  ]);
+  const artistCandidates = getArtistLookupCandidates(artist);
   const candidates = [];
 
   titleCandidates.forEach((titleCandidate) => {
@@ -166,15 +211,29 @@ function getLyricsLookupCandidates(title, artist) {
       candidates.push({
         title: titleCandidate,
         artist: artistCandidate,
+        durationSeconds,
       });
     });
   });
 
   if (!candidates.length && title.trim()) {
-    candidates.push({ title: title.trim(), artist: artist.trim() });
+    candidates.push({ title: title.trim(), artist: artist.trim(), durationSeconds });
   }
 
-  return candidates;
+  const seenCandidates = new Set();
+
+  return candidates
+    .filter((candidate) => {
+      const candidateKey = `${normalizeLookupText(candidate.title)}::${normalizeLookupText(candidate.artist)}`;
+
+      if (!normalizeLookupText(candidate.title) || seenCandidates.has(candidateKey)) {
+        return false;
+      }
+
+      seenCandidates.add(candidateKey);
+      return true;
+    })
+    .slice(0, MAX_LYRICS_LOOKUP_CANDIDATES);
 }
 
 async function fetchJsonWithTimeout(url, options = {}) {
@@ -288,22 +347,42 @@ function getLrclibMatchScore(item, candidate) {
   const itemArtist = normalizeLookupText(item.artistName);
   const candidateTitle = normalizeLookupText(candidate.title);
   const candidateArtist = normalizeLookupText(candidate.artist);
-  let score = item.instrumental ? -5 : 0;
+  const itemDuration = Number(item.duration);
+  const candidateDuration = Number(candidate.durationSeconds);
+  let score = item.instrumental ? -8 : 0;
 
   if (itemTitle === candidateTitle) {
-    score += 8;
+    score += 10;
   } else if (itemTitle.includes(candidateTitle) || candidateTitle.includes(itemTitle)) {
-    score += 4;
+    score += 5;
   }
 
-  if (itemArtist === candidateArtist) {
-    score += 6;
-  } else if (itemArtist.includes(candidateArtist) || candidateArtist.includes(itemArtist)) {
-    score += 3;
+  if (candidateArtist) {
+    if (itemArtist === candidateArtist) {
+      score += 8;
+    } else if (itemArtist.includes(candidateArtist) || candidateArtist.includes(itemArtist)) {
+      score += 4;
+    }
   }
 
-  if (item.plainLyrics || item.syncedLyrics) {
+  if (item.syncedLyrics) {
+    score += 8;
+  }
+
+  if (item.plainLyrics) {
     score += 2;
+  }
+
+  if (Number.isFinite(itemDuration) && Number.isFinite(candidateDuration) && candidateDuration > 0) {
+    const durationDiff = Math.abs(itemDuration - candidateDuration);
+
+    if (durationDiff <= 2) {
+      score += 5;
+    } else if (durationDiff <= 8) {
+      score += 2;
+    } else if (durationDiff > 24) {
+      score -= 4;
+    }
   }
 
   return score;
@@ -323,65 +402,143 @@ function getLrclibLyricsResult(item, source = "LRCLIB") {
   );
 }
 
+function getBestLrclibMatch(matches) {
+  return matches
+    .map((match) => ({
+      result: getLrclibLyricsResult(match.item),
+      score: match.score,
+    }))
+    .filter((match) => match.result)
+    .sort((left, right) => {
+      if (left.result.isSynced !== right.result.isSynced) {
+        const scoreGap = Math.abs(right.score - left.score);
+
+        if (scoreGap <= 4) {
+          return left.result.isSynced ? -1 : 1;
+        }
+      }
+
+      return right.score - left.score;
+    })[0];
+}
+
 async function findLrclibLyrics(candidates) {
-  for (const candidate of candidates) {
-    const query = new URLSearchParams({
-      track_name: candidate.title,
-      artist_name: candidate.artist,
+  const lookupCandidates = candidates.slice(0, MAX_LYRICS_LOOKUP_CANDIDATES);
+  const exactCandidates = lookupCandidates.slice(0, MAX_LRCLIB_EXACT_CANDIDATES);
+  const searchCandidates = lookupCandidates.slice(0, MAX_LRCLIB_SEARCH_CANDIDATES);
+  const lrclibMatches = [];
+  const seenMatchKeys = new Set();
+
+  function addLrclibMatch(item, candidate, scoreBonus = 0) {
+    if (!item?.plainLyrics && !item?.syncedLyrics) return;
+
+    const matchKey =
+      item.id ||
+      `${normalizeLookupText(item.trackName || item.name)}::${normalizeLookupText(item.artistName)}::${item.duration || ""}`;
+
+    if (seenMatchKeys.has(matchKey)) return;
+
+    seenMatchKeys.add(matchKey);
+    lrclibMatches.push({
+      item,
+      score: getLrclibMatchScore(item, candidate) + scoreBonus,
     });
-    const result = await fetchJsonWithTimeout(`https://lrclib.net/api/get?${query.toString()}`);
-
-    if (result.ok) {
-      const lyricsResult = getLrclibLyricsResult(result.payload);
-
-      if (lyricsResult) return lyricsResult;
-    }
   }
 
-  for (const candidate of candidates) {
-    const query = new URLSearchParams({
-      track_name: candidate.title,
-      artist_name: candidate.artist,
+  const exactResults = await Promise.allSettled(
+    exactCandidates.map(async (candidate) => {
+      const query = new URLSearchParams({
+        track_name: candidate.title,
+      });
+
+      if (candidate.artist) {
+        query.set("artist_name", candidate.artist);
+      }
+
+      if (Number.isFinite(candidate.durationSeconds) && candidate.durationSeconds > 0) {
+        query.set("duration", String(Math.round(candidate.durationSeconds)));
+      }
+
+      const result = await fetchJsonWithTimeout(`https://lrclib.net/api/get?${query.toString()}`);
+
+      return result.ok && result.payload
+        ? { candidate, item: result.payload }
+        : null;
+    }),
+  );
+
+  exactResults.forEach((result) => {
+    if (result.status === "fulfilled" && result.value) {
+      addLrclibMatch(result.value.item, result.value.candidate, 2);
+    }
+  });
+
+  const exactBestMatch = getBestLrclibMatch(lrclibMatches);
+
+  if (exactBestMatch?.result?.isSynced && exactBestMatch.score >= 9) {
+    return exactBestMatch.result;
+  }
+
+  const searchResults = await Promise.allSettled(
+    searchCandidates.map(async (candidate) => {
+      const query = new URLSearchParams({
+        track_name: candidate.title,
+      });
+
+      if (candidate.artist) {
+        query.set("artist_name", candidate.artist);
+      }
+
+      const result = await fetchJsonWithTimeout(`https://lrclib.net/api/search?${query.toString()}`);
+
+      return result.ok && Array.isArray(result.payload)
+        ? { candidate, items: result.payload }
+        : null;
+    }),
+  );
+
+  searchResults.forEach((result) => {
+    if (result.status !== "fulfilled" || !result.value) return;
+
+    result.value.items.forEach((item) => {
+      addLrclibMatch(item, result.value.candidate);
     });
-    const result = await fetchJsonWithTimeout(`https://lrclib.net/api/search?${query.toString()}`);
+  });
 
-    if (!result.ok || !Array.isArray(result.payload)) continue;
+  const bestMatch = getBestLrclibMatch(lrclibMatches);
 
-    const bestMatch = result.payload
-      .filter((item) => item?.plainLyrics || item?.syncedLyrics)
-      .map((item) => ({
-        item,
-        score: getLrclibMatchScore(item, candidate),
-      }))
-      .sort((left, right) => right.score - left.score)[0];
-
-    if (!bestMatch || bestMatch.score < 6) continue;
-
-    const lyricsResult = getLrclibLyricsResult(bestMatch.item);
-
-    if (lyricsResult) return lyricsResult;
+  if (bestMatch && bestMatch.score >= 9) {
+    return bestMatch.result;
   }
 
   return null;
 }
 
 async function findLyricsOvhLyrics(candidates) {
-  for (const candidate of candidates) {
-    const result = await fetchJsonWithTimeout(
-      `https://api.lyrics.ovh/v1/${encodeURIComponent(candidate.artist)}/${encodeURIComponent(candidate.title)}`,
-    );
+  const lookupCandidates = candidates.slice(0, Math.min(5, MAX_LYRICS_LOOKUP_CANDIDATES));
+  const lookupResults = await Promise.allSettled(
+    lookupCandidates.map(async (candidate, index) => {
+      if (!candidate.artist) return null;
 
-    if (!result.ok || !result.payload?.lyrics) continue;
+      const result = await fetchJsonWithTimeout(
+        `https://api.lyrics.ovh/v1/${encodeURIComponent(candidate.artist)}/${encodeURIComponent(candidate.title)}`,
+      );
 
-    const lyricsResult = buildLyricsResult(result.payload.lyrics, "lyrics.ovh");
+      if (!result.ok || !result.payload?.lyrics) return null;
 
-    if (lyricsResult) return lyricsResult;
-  }
+      const lyricsResult = buildLyricsResult(result.payload.lyrics, "lyrics.ovh");
 
-  return null;
+      return lyricsResult ? { index, result: lyricsResult } : null;
+    }),
+  );
+
+  return lookupResults
+    .filter((result) => result.status === "fulfilled" && result.value?.result)
+    .map((result) => result.value)
+    .sort((left, right) => left.index - right.index)[0]?.result ?? null;
 }
 
-async function lookupLyrics(title, artist) {
+async function lookupLyrics(title, artist, durationSeconds = 0) {
   const trimmedTitle = String(title || "").trim();
   const trimmedArtist = String(artist || "").trim();
   const cacheKey = `${normalizeLookupText(trimmedTitle)}::${normalizeLookupText(trimmedArtist)}`;
@@ -391,17 +548,15 @@ async function lookupLyrics(title, artist) {
     return cachedLyrics.result;
   }
 
-  const candidates = getLyricsLookupCandidates(trimmedTitle, trimmedArtist);
+  const candidates = getLyricsLookupCandidates(trimmedTitle, trimmedArtist, durationSeconds);
   const result =
     (await findLrclibLyrics(candidates).catch(() => null)) ||
     (await findLyricsOvhLyrics(candidates).catch(() => null));
 
-  if (result) {
-    lyricsCache.set(cacheKey, {
-      expiresAt: Date.now() + LYRICS_CACHE_TTL_MS,
-      result,
-    });
-  }
+  lyricsCache.set(cacheKey, {
+    expiresAt: Date.now() + (result ? LYRICS_CACHE_TTL_MS : LYRICS_NOT_FOUND_CACHE_TTL_MS),
+    result,
+  });
 
   return result;
 }
@@ -876,13 +1031,14 @@ async function handleGetTracks(request, response) {
 async function handleGetLyrics(url, response) {
   const title = String(url.searchParams.get("title") || "").trim();
   const artist = String(url.searchParams.get("artist") || "").trim();
+  const durationSeconds = Number(url.searchParams.get("duration") || 0);
 
   if (!title) {
     sendJson(response, 400, { error: "Missing song title." });
     return;
   }
 
-  const lyricsResult = await lookupLyrics(title, artist);
+  const lyricsResult = await lookupLyrics(title, artist, durationSeconds);
 
   if (!lyricsResult) {
     sendJson(response, 404, {

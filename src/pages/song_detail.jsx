@@ -43,18 +43,73 @@ function decodeSongId(value) {
   }
 }
 
+function getTrackLyricsValue(track) {
+  return track?.lyrics || track?.lyricsText || track?.lyric || track?.lyricText || "";
+}
+
+function parseLyricsTimestamp(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/);
+
+  if (!match) return null;
+
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  const fractionText = match[3] || "0";
+  const fraction = Number(fractionText.padEnd(3, "0").slice(0, 3)) / 1000;
+  const timestamp = minutes * 60 + seconds + fraction;
+
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getSyncedLyricsLines(value) {
+  return String(value || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .flatMap((rawLine) => {
+      const timestampMatches = [...rawLine.matchAll(/\[([0-9:.]+)\]/g)];
+      const text = rawLine.replace(/\[[^\]]+\]/g, "").trim();
+
+      if (!text || !timestampMatches.length) return [];
+
+      return timestampMatches
+        .map((match) => parseLyricsTimestamp(match[1]))
+        .filter((time) => Number.isFinite(time))
+        .map((time) => ({
+          text,
+          time,
+        }));
+    })
+    .sort((left, right) => left.time - right.time);
+}
+
 function getLyricsLines(track) {
-  const lyrics =
-    track.lyrics || track.lyricsText || track.lyric || track.lyricText || "";
+  const lyrics = getTrackLyricsValue(track);
 
   if (Array.isArray(lyrics)) {
-    return lyrics.map((line) => String(line).trim()).filter(Boolean);
+    return lyrics
+      .map((line) => String(line?.text ?? line).trim())
+      .filter(Boolean);
   }
 
   return String(lyrics)
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line) => line.replace(/\[[^\]]+\]/g, "").trim())
     .filter(Boolean);
+}
+
+function getLocalTimedLyricsLines(track) {
+  const lyrics = getTrackLyricsValue(track);
+
+  if (Array.isArray(lyrics)) {
+    return lyrics
+      .map((line) => ({
+        text: String(line?.text || "").trim(),
+        time: Number(line?.time),
+      }))
+      .filter((line) => line.text && Number.isFinite(line.time));
+  }
+
+  return getSyncedLyricsLines(lyrics);
 }
 
 function getDurationSeconds(song) {
@@ -140,6 +195,7 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
     tracks.find((track) => track.id === decodedSongId) ||
     null;
   const localLyricsLines = song ? getLyricsLines(song) : [];
+  const localTimedLyricsLines = song ? getLocalTimedLyricsLines(song) : [];
   const lyricsLookupKey = song
     ? `${song.title || ""}::${song.artist || ""}`
     : "";
@@ -149,22 +205,23 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
     remoteLyricsMatchesSong,
   );
   const remoteLyricsLines = remoteLyricsMatchesSong ? remoteLyrics.lines : [];
-  const lyricsEntries = localLyricsLines.length
-    ? localLyricsLines.map((line) => ({ text: line }))
+  const lyricsEntries = localTimedLyricsLines.length
+    ? localTimedLyricsLines
     : remoteTimedLines.length
       ? remoteTimedLines
-      : remoteLyricsLines.map((line) => ({ text: line }));
+      : remoteLyricsLines.length
+        ? remoteLyricsLines.map((line) => ({ text: line }))
+        : localLyricsLines.map((line) => ({ text: line }));
   const songDurationSeconds = getDurationSeconds(song);
   const activeLyricsIndex = getActiveLyricsIndex(
     lyricsEntries,
     player?.currentTime,
     songDurationSeconds,
   );
-  const lyricsStatus = localLyricsLines.length
+  const lyricsStatus = lyricsEntries.length
     ? "loaded"
     : isLyricsOpen &&
         song &&
-        !localLyricsLines.length &&
         (!remoteLyricsMatchesSong || remoteLyrics.status === "idle")
       ? "loading"
       : remoteLyricsMatchesSong
@@ -180,7 +237,7 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
   }, [currentSong?.id, decodedSongId, navigate]);
 
   useEffect(() => {
-    if (!song || !isLyricsOpen || localLyricsLines.length) return undefined;
+    if (!song || !isLyricsOpen || localTimedLyricsLines.length) return undefined;
     if (
       remoteLyricsMatchesSong &&
       ["loading", "loaded", "not-found", "error"].includes(
@@ -196,6 +253,10 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
       artist: song.artist || "",
       title: song.title || "",
     });
+
+    if (songDurationSeconds > 0) {
+      query.set("duration", String(Math.round(songDurationSeconds)));
+    }
 
     pendingLyricsKeyRef.current = lyricsLookupKey;
 
@@ -235,7 +296,10 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
           error: "",
           lines: onlineLyricsLines,
           source: payload.source || "",
-          status: onlineLyricsLines.length ? "loaded" : "not-found",
+          status:
+            onlineLyricsLines.length || onlineTimedLines.length
+              ? "loaded"
+              : "not-found",
           timedLines: onlineTimedLines,
         };
       })
@@ -280,25 +344,41 @@ function SongDetail({ player, tracks = [], isLoading = false, error = "" }) {
     };
   }, [
     isLyricsOpen,
-    localLyricsLines.length,
+    localTimedLyricsLines.length,
     lyricsLookupKey,
     remoteLyrics.status,
     remoteLyricsMatchesSong,
     song,
+    songDurationSeconds,
     t,
   ]);
 
   useEffect(() => {
     if (!isLyricsOpen || activeLyricsIndex < 0) return;
 
+    const lyricsList = lyricsListRef.current;
     const activeLine = lyricsListRef.current?.querySelector(
       `[data-lyrics-index="${activeLyricsIndex}"]`,
     );
 
-    activeLine?.scrollIntoView({
-      behavior: player?.isPlaying ? "smooth" : "auto",
-      block: "center",
+    if (!lyricsList || !activeLine) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const listRect = lyricsList.getBoundingClientRect();
+      const lineRect = activeLine.getBoundingClientRect();
+      const centeredOffset =
+        lineRect.top -
+        listRect.top -
+        lyricsList.clientHeight / 2 +
+        lineRect.height / 2;
+
+      lyricsList.scrollTo({
+        top: lyricsList.scrollTop + centeredOffset,
+        behavior: player?.isPlaying ? "smooth" : "auto",
+      });
     });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [activeLyricsIndex, isLyricsOpen, player?.isPlaying, song?.id]);
 
   if (isLoading) {
